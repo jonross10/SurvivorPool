@@ -98,7 +98,7 @@ def team_rename(team_s):
 		ts = team_s
 	return ts
 
-def lambda_handler(arg1, arg2):	
+def get_chrome_options():
 	chrome_options = webdriver.ChromeOptions()
 	chrome_options.add_argument('--headless')
 	chrome_options.add_argument('--no-sandbox')
@@ -114,61 +114,48 @@ def lambda_handler(arg1, arg2):
 	chrome_options.add_argument('--ignore-certificate-errors')
 	chrome_options.add_argument('--homedir=/tmp')
 	chrome_options.add_argument('--disk-cache-dir=/tmp/cache-dir')
+	chrome_options.add_argument('--disable-dev-shm-usage')
 	chrome_options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36')
 	chrome_options.binary_location = os.getcwd() + "/bin/headless-chromium"
-	 
-	driver = webdriver.Chrome(chrome_options=chrome_options)
+	return chrome_options
 
+def get_vegas_moneyline(driver):
 	driver.get('http://www.vegasinsider.com/nfl/odds/las-vegas/money/')
-	# response = session.body()
 	soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-	moneyline_table = soup.find_all('table')[42]
+	moneyline_table = soup.find('table', {'class':'frodds-data-tbl'})
 	moneyline_obj = []
 	for rownum, row in enumerate(moneyline_table.find_all("tr")):
 		if(len(row)>1):
-			print("~~~~~~~~~~~~")
 			if row.find_all('td')[2].find('a') is None:
-				print(row.find_all('td')[1])
 				if row.find_all('td')[1].find('a') is None or row.find_all('td')[1].find('a').get_text(strip=True) == '':
 					odds='+0+0'
 				else:
 					odds=row.find_all('td')[1].find('a').get_text(strip=True)
 			else:
-				print(row.find_all('td')[2])
 				odds=row.find_all('td')[2].find('a').get_text(strip=True)
-			moneyline_obj.append(Matchup(row.contents[1].find_all('a')[0].text,row.contents[1].find_all('a')[1].text,re.findall(r"((?:-|\+)\d+)((?:-|\+)\d+)", odds)[0][0],re.findall(r"((?:-|\+)\d+)((?:-|\+)\d+)", odds)[0][1]))
+			moneyline_obj.append(
+				Matchup(
+					row.contents[1].find_all('a')[0].text,
+					row.contents[1].find_all('a')[1].text,
+					re.findall(r"((?:-|\+)\d+)((?:-|\+)\d+)", odds)[0][0],
+					re.findall(r"((?:-|\+)\d+)((?:-|\+)\d+)", odds)[0][1]
+				)
+			)
+	return moneyline_obj
 
-	# get power rankings
+def get_nfl_power_rankings(driver):
 	power_rankings = []
 	driver.get('https://www.oddsshark.com/nfl/power-rankings')
 	soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-	ranking_table = soup.find('table', {'class':'base-table base-table-sortable'})
+	ranking_table = soup.find('table', {'class':'table table--sortable table--striped table--fixed-column'})
 	for rownum, row in enumerate(ranking_table.find_all("tr")[1:]):
 		power_rankings.append(Rankings(row.find_all("td")[0].find("a").text, row.find_all("td")[1].text))
+	return power_rankings
 
-
-	# use creds to create a client to interact with the Google Drive API
-	scope = ['https://spreadsheets.google.com/feeds',
-	         'https://www.googleapis.com/auth/drive']
-	print("1111")
-	creds = ServiceAccountCredentials.from_json_keyfile_name(os.getcwd() + '/src/client_secret.json', scope)
-	print("creds")
-	print(creds)
-	client = gspread.authorize(creds)
-	print("client")
-	# Find a workbook by name and open the first sheet
-	# Make sure you use the right name here.
+def update_moneyline_sheet(client, moneyline_obj):
 	sheet = client.open("Survivor Pool").worksheet("Moneyline")
-	print("sheet")
-	# clear sheet
-	# range_of_cells = sheet.range('A1:B36')
-	# for cell in range_of_cells:
-	#     cell.value = ''
-	# sheet.update_cells(range_of_cells) 
-
 	cells_in_a = sheet.range('A1:A32')
 	cells_in_b = sheet.range('B1:B32')
-
 	index=0
 	num=0
 	for cell in cells_in_a:
@@ -180,7 +167,6 @@ def lambda_handler(arg1, arg2):
 				cell.value = team_rename(moneyline_obj[index].team_one)
 			num+=1
 	sheet.update_cells(cells_in_a)
-	
 	index=0
 	num=0
 	for cell in cells_in_b:
@@ -193,7 +179,7 @@ def lambda_handler(arg1, arg2):
 			num+=1
 	sheet.update_cells(cells_in_b)
 
-
+def update_nfl_rankings_sheet(client, power_rankings):
 	sheet = client.open("Survivor Pool").worksheet("Rankings")
 	cells_in_a = sheet.range('A1:A32')
 	cells_in_b = sheet.range('B1:B32')
@@ -204,7 +190,6 @@ def lambda_handler(arg1, arg2):
 			cell.value = team_rename(power_rankings[index].team)
 			index+=1
 	sheet.update_cells(cells_in_a)
-
 	# input rankings
 	index=0
 	for cell in cells_in_a:
@@ -212,3 +197,17 @@ def lambda_handler(arg1, arg2):
 			cell.value = power_rankings[index].ranking
 			index+=1
 	sheet.update_cells(cells_in_b)
+
+
+def lambda_handler(arg1, arg2):	
+	driver = webdriver.Chrome(chrome_options=get_chrome_options())
+	moneyline_obj = get_vegas_moneyline(driver)
+	power_rankings = get_nfl_power_rankings(driver)
+	scope = ['https://spreadsheets.google.com/feeds',
+	         'https://www.googleapis.com/auth/drive']
+	creds = ServiceAccountCredentials.from_json_keyfile_name(os.getcwd() + '/src/client_secret.json', scope)
+	client = gspread.authorize(creds)
+	update_moneyline_sheet(client, moneyline_obj)
+	update_nfl_rankings_sheet(client, power_rankings)
+	
+
