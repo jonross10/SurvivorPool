@@ -1,3 +1,4 @@
+// use http://www.espn.com/nfl/schedulegrid to fill out the main sheet at the beginning of each season
 function arrayDiff(teamsChosen, allteams) {
   var teamsLeft = [];
   allteams = allteams.map(function(item) {
@@ -47,7 +48,7 @@ function setRanksToInt(){
 }
 
 function hideRows() {
-  var sheets = ["Jon","Mr. Sabin","JJ"];
+  var sheets = ["Jon"]; //add extra sheet names here to see how you compare to others in the league
   var cols = ["B:B","C:C","D:D"];
   var master = SpreadsheetApp.getActive().getSheetByName("Master")
   for (var i = 0, sLen = sheets.length; i < sLen; i++) {
@@ -69,14 +70,14 @@ function hideRows() {
 
 function calculateNFLWeek() {
     var now = new Date()
-    var week10 = new Date("November 13, 2018");
+    var week1 = new Date("September 3, 2019");
     // The number of milliseconds in one week
     var ONE_WEEK = 1000 * 60 * 60 * 24 * 7;
     // Convert both dates to milliseconds
     var date1_ms = now.getTime();
-    var date2_ms = week10.getTime();
+    var date2_ms = week1.getTime();
     // Calculate the difference in milliseconds
     var difference_ms = Math.abs(date1_ms - date2_ms);
     // Convert back to weeks and return hole weeks
-    return 10 + Math.ceil(difference_ms / ONE_WEEK);
+    return Math.ceil(difference_ms / ONE_WEEK);
 }
