@@ -8,6 +8,9 @@ from selenium.webdriver.chrome.options import Options
 import re
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import logging
+
+logging.getLogger().setLevel(logging.INFO)
 
 class Matchup:
 	def __init__(self, team_one, team_two, odds_one, odds_two):
@@ -133,6 +136,12 @@ def get_vegas_moneyline(driver):
 					odds=row.find_all('td')[1].find('a').get_text(strip=True)
 			else:
 				odds=row.find_all('td')[2].find('a').get_text(strip=True)
+			logging.info(
+				"team_one: {team_one}\n team_two: {team_two}\n odds: {odds}".format(
+					team_one=row.contents[1].find_all('a')[0].text,
+					team_two=row.contents[1].find_all('a')[1].text
+					odds=odds
+			)
 			moneyline_obj.append(
 				Matchup(
 					row.contents[1].find_all('a')[0].text,
