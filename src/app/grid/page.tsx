@@ -52,7 +52,6 @@ export default function GridPage() {
           ))}
         </tbody>
       </table>
-      <p style={{ marginTop: 24 }}><a href="/">← Dashboard</a></p>
     </main>
   );
 }

@@ -57,9 +57,6 @@ export default function DashboardClient() {
           </div>
         ))}
       </div>
-      <p style={{ marginTop: 24 }}>
-        <a href="/grid">Grid view</a> · <a href="/log">Pick log</a>
-      </p>
     </main>
   );
 }
