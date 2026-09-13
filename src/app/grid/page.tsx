@@ -4,6 +4,7 @@ import type { WinProb } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamRow from "@/components/TeamRow";
 import TeamLogo from "@/components/TeamLogo";
+import { useRanks } from "@/components/use-ranks";
 
 function color(p: number): string {
   const hue = Math.round(p * 120); // 0=red, 120=green
@@ -18,6 +19,7 @@ export default function GridPage() {
   const [wps, setWps] = useState<WinProb[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const ranks = useRanks();
 
   useEffect(() => {
     fetch("/api/entries").then((r) => r.json())
@@ -77,7 +79,7 @@ export default function GridPage() {
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 z-20 w-[76px] min-w-[76px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
+              <th className="sticky left-0 z-20 w-[90px] min-w-[90px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
                 Team
               </th>
               {weeks.map((w) => (
@@ -90,8 +92,8 @@ export default function GridPage() {
           <tbody>
             {teams.map((t) => (
               <tr key={t}>
-                <td className="sticky left-0 z-20 w-[76px] min-w-[76px] border-b border-r border-slate-200 bg-white px-3 py-1">
-                  <TeamRow abbr={t} size={20} />
+                <td className="sticky left-0 z-20 w-[90px] min-w-[90px] border-b border-r border-slate-200 bg-white px-3 py-1">
+                  <TeamRow abbr={t} size={20} rank={ranks[t]} />
                 </td>
                 {weeks.map((w) => {
                   const c = cell.get(`${w}:${t}`);

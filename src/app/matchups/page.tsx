@@ -4,6 +4,7 @@ import { unwrapMany } from "@/lib/jsonapi-client";
 import type { GameView, Recommendation } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
+import { useRanks } from "@/components/use-ranks";
 
 interface EntryState { name: string; usedTeams: string[]; picksByWeek: Record<number, string> }
 
@@ -28,6 +29,7 @@ export default function MatchupsPage() {
   const [entry, setEntry] = useState("");
   const [states, setStates] = useState<EntryState[]>([]);
   const [recs, setRecs] = useState<Recommendation[]>([]);
+  const ranks = useRanks();
 
   useEffect(() => {
     fetch("/api/entries").then((r) => r.json())
@@ -109,6 +111,9 @@ export default function MatchupsPage() {
         <span className="flex items-center gap-2">
           <TeamLogo abbr={team} size={22} />
           <span className="font-semibold">{team}</span>
+          {ranks[team] !== undefined && (
+            <span className="text-[10px] font-medium text-slate-400" title="Power ranking">#{ranks[team]}</span>
+          )}
           {isPick && <span className="text-emerald-600">✓</span>}
           {isSuggested && !isPick && <span className="text-blue-500">★</span>}
         </span>
