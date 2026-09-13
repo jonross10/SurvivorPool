@@ -1,3 +1,4 @@
+import DashboardClient from "./dashboard-client";
 export default function Home() {
-  return <main><h1>Survivor Pool</h1></main>;
+  return <DashboardClient />;
 }
