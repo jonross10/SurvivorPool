@@ -58,14 +58,30 @@ export function recommend(
     }
   }
 
-  const saved = optimalCurrent && greedy && optimalCurrent.team !== greedy.team
-    ? projectedPath.find((p) => p.team === greedy.team)
-    : null;
-  const reasoning = pick
-    ? saved
-      ? `Pick ${pick} (${pct(prob)}); saving ${saved.team} for Week ${saved.week} (${pct(saved.prob)}).`
-      : `Pick ${pick} (${pct(prob)}) — best available this week.`
-    : "No available teams to pick.";
+  // Did the safety floor override the season-optimal current-week pick?
+  const floorOverride =
+    optimalCurrent !== null && pick !== null && pick !== optimalCurrent.team;
+
+  // We're only "saving" a team when we took the optimal pick and the greedy-best
+  // team is being held for a later week. A floor override is a different reason,
+  // so the saving narrative does not apply to it.
+  const saved =
+    !floorOverride && optimalCurrent && greedy && optimalCurrent.team !== greedy.team
+      ? projectedPath.find((p) => p.team === greedy.team)
+      : null;
+
+  let reasoning: string;
+  if (!pick) {
+    reasoning = "No available teams to pick.";
+  } else if (floorOverride) {
+    reasoning =
+      `Pick ${pick} (${pct(prob)}) — safety-floor override; optimal ${optimalCurrent!.team} ` +
+      `(${pct(optimalCurrent!.prob)}) was below the ${pct(opts.safetyFloor)} floor.`;
+  } else if (saved) {
+    reasoning = `Pick ${pick} (${pct(prob)}); saving ${saved.team} for Week ${saved.week} (${pct(saved.prob)}).`;
+  } else {
+    reasoning = `Pick ${pick} (${pct(prob)}) — best available this week.`;
+  }
 
   return { entry, week: currentWeek, pick, prob, reasoning, greedyAlt: greedy, projectedPath };
 }

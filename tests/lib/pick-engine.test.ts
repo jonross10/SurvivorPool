@@ -37,6 +37,25 @@ describe("recommend", () => {
     expect(rec.prob).toBeGreaterThanOrEqual(0.75);
   });
 
+  it("overrides the optimal pick when it is below the floor, without a contradictory 'saving' reason", () => {
+    // Optimal path (max total log-prob) assigns AAA to week 1:
+    //   log(0.60)+log(0.95) = -0.562  >  log(0.80)+log(0.70) = -0.580
+    // But AAA (0.60) is below the 0.75 floor, so the floor must override to BBB (0.80),
+    // the very team the optimal path was saving for week 2 — the reasoning must NOT say
+    // it is "saving BBB" while picking BBB.
+    const wps: WinProb[] = [
+      { week: 1, team: "AAA", opponent: "X", home: true, prob: 0.60, source: "fpi" },
+      { week: 1, team: "BBB", opponent: "Y", home: true, prob: 0.80, source: "odds" },
+      { week: 2, team: "AAA", opponent: "Z", home: true, prob: 0.70, source: "fpi" },
+      { week: 2, team: "BBB", opponent: "W", home: true, prob: 0.95, source: "fpi" },
+    ];
+    const rec = recommend("Jon 1", 1, wps, { safetyFloor: 0.75 });
+    expect(rec.pick).toBe("BBB");
+    expect(rec.prob).toBeGreaterThanOrEqual(0.75);
+    expect(rec.reasoning).not.toContain("saving BBB");
+    expect(rec.reasoning.toLowerCase()).toContain("override");
+  });
+
   it("returns a null pick when no teams are available", () => {
     const rec = recommend("Jon 1", 1, [], { safetyFloor: 0 });
     expect(rec.pick).toBeNull();
