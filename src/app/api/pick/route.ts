@@ -1,5 +1,6 @@
 import { recordPick, removePick } from "@/lib/db/picks-repo";
-import { NAME_TO_ID } from "@/lib/entries";
+import { getEntries } from "@/lib/db/entries-repo";
+import { nameToId } from "@/lib/entries-util";
 import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 interface PickAttrs { entry: string; week: number; team: string; winProb?: number }
@@ -11,7 +12,7 @@ async function readAttrs(req: Request): Promise<Partial<PickAttrs>> {
 
 export async function POST(req: Request) {
   const { entry, week, team, winProb } = await readAttrs(req);
-  const entryId = entry ? NAME_TO_ID[entry] : undefined;
+  const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
   if (!entryId || week === undefined || !team) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid pick", detail: "entry, week, and team are required" }]), 400);
   }
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const { entry, week } = await readAttrs(req);
-  const entryId = entry ? NAME_TO_ID[entry] : undefined;
+  const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
   if (!entryId || week === undefined) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid request", detail: "entry and week are required" }]), 400);
   }

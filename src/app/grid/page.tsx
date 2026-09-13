@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { WinProb } from "@/lib/types";
-import { ENTRY_NAMES } from "@/lib/entries";
+// TODO(Task 5): fetch from /api/entries
+const ENTRY_NAMES = ["Jon", "Genevieve", "Elliot"];
 import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamRow from "@/components/TeamRow";
 import TeamLogo from "@/components/TeamLogo";
