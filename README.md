@@ -1,6 +1,7 @@
 # Survivor Pool
 
-A Next.js/Vercel app that recommends weekly NFL survivor-pool picks for four entries. It
+A Next.js/Vercel app that recommends weekly NFL survivor-pool picks for the pool's entries
+(configured in `src/lib/entries.ts`). It
 fetches de-vigged moneyline odds (The Odds API) for the current week and FPI-projected win
 probabilities (ESPN) for future weeks, then runs a **season-optimal assignment engine** that
 assigns each still-available team to the week where it does the most for your survival —
@@ -34,7 +35,8 @@ This replaces the old AWS-Lambda + Selenium scraper and Google Sheet.
 3. Get a free key at **the-odds-api.com**; set `ODDS_API_KEY`.
 4. Set `APP_PASSWORD` (site gate), `CRON_SECRET` (cron auth), and `NFL_SEASON` (e.g. `2026`).
    See `.env.example`. For local dev put these in `.env`.
-5. `npm run migrate` — creates the tables and seeds the four entries (Jon 1–4).
+5. `npm run migrate` — creates the tables and seeds the entries (Jon, Genevieve, Elliot).
+   To change entries, edit `src/lib/entries.ts` and the seed in `src/lib/db/schema.sql`.
 6. `npm run dev`, then open `http://localhost:3000/?pw=YOUR_PASSWORD`.
 7. Load data on first run: `curl -X POST http://localhost:3000/api/refresh`
    (in production the cron does this automatically).

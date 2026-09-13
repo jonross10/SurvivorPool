@@ -2,12 +2,8 @@ import { NextResponse } from "next/server";
 import { getCache } from "@/lib/db/cache-repo";
 import { getUsedTeams } from "@/lib/db/picks-repo";
 import { buildRecommendations } from "@/lib/recommendations";
+import { ENTRIES } from "@/lib/entries";
 import type { Matchup, TeamStrength, MoneylineGame, TeamAbbr } from "@/lib/types";
-
-const ENTRIES = [
-  { id: "jon1", name: "Jon 1" }, { id: "jon2", name: "Jon 2" },
-  { id: "jon3", name: "Jon 3" }, { id: "jon4", name: "Jon 4" },
-];
 
 export async function GET(req: Request) {
   const floor = Number(new URL(req.url).searchParams.get("floor") ?? "0.6");

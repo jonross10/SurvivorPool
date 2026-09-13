@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordPick } from "@/lib/db/picks-repo";
-
-const NAME_TO_ID: Record<string, string> = {
-  "Jon 1": "jon1", "Jon 2": "jon2", "Jon 3": "jon3", "Jon 4": "jon4",
-};
+import { NAME_TO_ID } from "@/lib/entries";
 
 export async function POST(req: Request) {
   const body = await req.json();

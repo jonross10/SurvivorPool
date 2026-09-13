@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { WinProb } from "@/lib/types";
-
-const ENTRIES = ["Jon 1", "Jon 2", "Jon 3", "Jon 4"];
+import { ENTRY_NAMES } from "@/lib/entries";
 
 function color(p: number): string {
   const hue = Math.round(p * 120); // 0=red, 120=green
@@ -10,7 +9,7 @@ function color(p: number): string {
 }
 
 export default function GridPage() {
-  const [entry, setEntry] = useState("Jon 1");
+  const [entry, setEntry] = useState(ENTRY_NAMES[0]);
   const [wps, setWps] = useState<WinProb[]>([]);
 
   useEffect(() => {
@@ -27,7 +26,7 @@ export default function GridPage() {
     <main style={{ fontFamily: "system-ui", padding: 24 }}>
       <h1>Grid — {entry}</h1>
       <select value={entry} onChange={(e) => setEntry(e.target.value)}>
-        {ENTRIES.map((n) => <option key={n}>{n}</option>)}
+        {ENTRY_NAMES.map((n) => <option key={n}>{n}</option>)}
       </select>
       <table style={{ borderCollapse: "collapse", marginTop: 16 }}>
         <thead>

@@ -21,5 +21,5 @@ CREATE TABLE IF NOT EXISTS cache (
 );
 
 INSERT INTO entries (id, name) VALUES
-  ('jon1','Jon 1'), ('jon2','Jon 2'), ('jon3','Jon 3'), ('jon4','Jon 4')
+  ('jon','Jon'), ('genevieve','Genevieve'), ('elliot','Elliot')
 ON CONFLICT (id) DO NOTHING;
