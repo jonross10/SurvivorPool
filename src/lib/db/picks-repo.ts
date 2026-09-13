@@ -32,3 +32,10 @@ export async function recordPick(
 export async function getUsedTeams(entryId: string): Promise<Set<TeamAbbr>> {
   return deriveUsedTeams(await getPicks(entryId));
 }
+
+export async function removePick(entryId: string, week: number): Promise<boolean> {
+  const rows = (await sql`
+    DELETE FROM picks WHERE entry_id = ${entryId} AND week = ${week} RETURNING id
+  `) as unknown[];
+  return rows.length > 0;
+}
