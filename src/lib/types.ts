@@ -58,3 +58,8 @@ export interface GameView {
   awayProb: number;
   source: "odds" | "fpi";
 }
+
+export interface Entry {
+  id: string;
+  name: string;
+}
