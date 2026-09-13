@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Recommendation } from "@/lib/types";
+import { unwrapMany } from "@/lib/jsonapi-client";
 
 export default function DashboardClient() {
   const [recs, setRecs] = useState<Recommendation[]>([]);
@@ -9,9 +10,9 @@ export default function DashboardClient() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch(`/api/recommendations?floor=${floor}`);
-    const data = await res.json();
-    setRecs(data.recommendations);
+    const res = await fetch(`/api/recommendations?safetyFloor=${floor}`);
+    const doc = await res.json();
+    setRecs(unwrapMany<Recommendation>(doc));
     setLoading(false);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
@@ -20,11 +21,15 @@ export default function DashboardClient() {
     if (!r.pick) return;
     const res = await fetch("/api/pick", {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ entry: r.entry, week: r.week, team: r.pick, winProb: r.prob }),
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({
+        data: { type: "pick", attributes: { entry: r.entry, week: r.week, team: r.pick, winProb: r.prob } },
+      }),
     });
-    if (!res.ok) alert((await res.json()).error);
-    else load();
+    if (!res.ok) {
+      const doc = await res.json();
+      alert(doc.errors?.[0]?.detail ?? "Pick failed");
+    } else load();
   }
 
   return (
