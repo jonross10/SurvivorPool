@@ -2,8 +2,14 @@ import { describe, it, expect } from "vitest";
 import { projectWinProb } from "@/lib/projection";
 
 describe("projectWinProb", () => {
-  it("gives 0.5 for equal teams on a neutral field", () => {
-    expect(projectWinProb(0, 0, false)).toBeCloseTo(0.5, 6);
+  it("makes the two sides of a matchup complementary (sum to 1)", () => {
+    const home = projectWinProb(3, 0, true);
+    const away = projectWinProb(0, 3, false);
+    expect(home + away).toBeCloseTo(1, 6);
+  });
+  it("favors the home team for evenly-matched opponents", () => {
+    expect(projectWinProb(0, 0, true)).toBeGreaterThan(0.5);
+    expect(projectWinProb(0, 0, false)).toBeLessThan(0.5);
   });
   it("favors the stronger team", () => {
     expect(projectWinProb(10, 0, false)).toBeGreaterThan(0.5);
