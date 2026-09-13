@@ -67,7 +67,7 @@ export default function CalendarPage() {
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
-              <th className="sticky left-0 z-20 w-[90px] min-w-[90px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
+              <th className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
                 Team
               </th>
               {weeks.map((w) => (
@@ -80,7 +80,7 @@ export default function CalendarPage() {
               const dim = used.has(t);
               return (
                 <tr key={t} className={dim ? "opacity-40" : ""}>
-                  <td className="sticky left-0 z-20 w-[90px] min-w-[90px] border-b border-r border-slate-200 bg-white px-3 py-1">
+                  <td className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-slate-200 bg-white px-3 py-1">
                     <TeamRow abbr={t} size={18} rank={ranks[t]} />
                   </td>
                   {weeks.map((w) => {
