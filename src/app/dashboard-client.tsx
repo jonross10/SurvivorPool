@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Recommendation } from "@/lib/types";
-import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
 
-type Rec = Recommendation & { currentPick?: string | null };
+type Rec = Recommendation & { currentPick?: string | null; entryId?: string };
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
 
@@ -28,7 +27,10 @@ export default function DashboardClient() {
     setLoading(true);
     const res = await fetch(`/api/recommendations?safetyFloor=${floor}`);
     const doc = await res.json();
-    setRecs(unwrapMany<Rec>(doc));
+    const recsWithId: Rec[] = (doc.data ?? []).map(
+      (d: { id: string; attributes: Rec }) => ({ ...d.attributes, entryId: d.id }),
+    );
+    setRecs(recsWithId);
     setLoading(false);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
@@ -50,6 +52,33 @@ export default function DashboardClient() {
     }
     await loadFreshness();
     setRefreshing(false);
+  }
+
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  async function addEntry() {
+    const name = newName.trim();
+    if (!name) return;
+    const res = await fetch("/api/entries", {
+      method: "POST",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { type: "entry", attributes: { name } } }),
+    });
+    if (!res.ok) {
+      const doc = await res.json();
+      alert(doc.errors?.[0]?.detail ?? "Could not add entry");
+      return;
+    }
+    setNewName("");
+    setAdding(false);
+    load();
+  }
+
+  async function removeEntry(r: Rec) {
+    if (!window.confirm(`Delete ${r.entry} and all their picks?`)) return;
+    await fetch(`/api/entries/${r.entryId ?? ""}`, { method: "DELETE" });
+    load();
   }
 
   async function confirm(r: Rec) {
@@ -84,6 +113,20 @@ export default function DashboardClient() {
         </h1>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">Updated {timeAgo(freshness.fetchedAt)}</span>
+          {adding ? (
+            <span className="flex items-center gap-1">
+              <input
+                autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addEntry()}
+                placeholder="Name"
+                className="w-28 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+              />
+              <button onClick={addEntry} className="rounded-lg bg-emerald-600 px-2 py-1 text-sm font-medium text-white hover:bg-emerald-700">Add</button>
+              <button onClick={() => { setAdding(false); setNewName(""); }} className="px-1 text-sm text-slate-500">✕</button>
+            </span>
+          ) : (
+            <button onClick={() => setAdding(true)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">+ Add entry</button>
+          )}
           <button
             onClick={refreshStats}
             disabled={refreshing || !freshness.canRefreshNow}
@@ -114,7 +157,16 @@ export default function DashboardClient() {
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {recs.map((r) => (
           <div key={r.entry} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-bold">{r.entry}</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">{r.entry}</h2>
+              <button
+                onClick={() => removeEntry(r)}
+                title="Delete entry"
+                className="text-slate-300 transition-colors hover:text-red-500"
+              >
+                ✕
+              </button>
+            </div>
 
             {r.currentPick ? (
               <div className="mt-2">
