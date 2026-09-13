@@ -4,7 +4,6 @@ import { unwrapMany } from "@/lib/jsonapi-client";
 import type { Matchup } from "@/lib/types";
 import TeamRow from "@/components/TeamRow";
 
-const ENTRY_NAMES = ["", "Jon", "Genevieve", "Elliot"]; // "" = none
 const TEAMS = [
   "ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB",
   "HOU","IND","JAC","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG",
@@ -16,8 +15,14 @@ interface EntryState { name: string; usedTeams: string[] }
 export default function CalendarPage() {
   const [games, setGames] = useState<Matchup[]>([]);
   const [weeks, setWeeks] = useState<number[]>([]);
+  const [entryNames, setEntryNames] = useState<string[]>([]);
   const [entry, setEntry] = useState("");
   const [states, setStates] = useState<EntryState[]>([]);
+
+  useEffect(() => {
+    fetch("/api/entries").then((r) => r.json())
+      .then((doc) => setEntryNames((doc.data ?? []).map((e: { attributes: { name: string } }) => e.attributes.name)));
+  }, []);
 
   useEffect(() => {
     fetch("/api/schedule").then((r) => r.json()).then((doc) => {
@@ -51,7 +56,7 @@ export default function CalendarPage() {
             onChange={(e) => setEntry(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
           >
-            {ENTRY_NAMES.map((n) => <option key={n} value={n}>{n || "— none —"}</option>)}
+            {["", ...entryNames].map((n) => <option key={n} value={n}>{n || "— none —"}</option>)}
           </select>
         </label>
       </div>

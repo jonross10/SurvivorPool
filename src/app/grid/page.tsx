@@ -1,8 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { WinProb } from "@/lib/types";
-// TODO(Task 5): fetch from /api/entries
-const ENTRY_NAMES = ["Jon", "Genevieve", "Elliot"];
 import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamRow from "@/components/TeamRow";
 import TeamLogo from "@/components/TeamLogo";
@@ -15,12 +13,21 @@ function color(p: number): string {
 interface Pending { team: string; week: number; prob: number }
 
 export default function GridPage() {
-  const [entry, setEntry] = useState(ENTRY_NAMES[0]);
+  const [entryNames, setEntryNames] = useState<string[]>([]);
+  const [entry, setEntry] = useState("");
   const [wps, setWps] = useState<WinProb[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch("/api/entries").then((r) => r.json())
+      .then((doc) => setEntryNames((doc.data ?? []).map((e: { attributes: { name: string } }) => e.attributes.name)));
+  }, []);
+
+  useEffect(() => { if (!entry && entryNames.length) setEntry(entryNames[0]); }, [entryNames, entry]);
+
   const load = useCallback(() => {
+    if (!entry) return;
     fetch(`/api/grid?filter[entry]=${encodeURIComponent(entry)}`)
       .then((r) => r.json())
       .then((doc) => setWps(unwrapMany<WinProb>(doc)));
@@ -59,7 +66,7 @@ export default function GridPage() {
           onChange={(e) => setEntry(e.target.value)}
           className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
         >
-          {ENTRY_NAMES.map((n) => <option key={n}>{n}</option>)}
+          {entryNames.map((n) => <option key={n}>{n}</option>)}
         </select>
       </div>
       <p className="mt-1 text-sm text-slate-500">

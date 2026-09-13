@@ -5,8 +5,6 @@ import type { GameView, Recommendation } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
 
-const ENTRY_NAMES = ["Jon", "Genevieve", "Elliot"];
-
 interface EntryState { name: string; usedTeams: string[]; picksByWeek: Record<number, string> }
 
 function fmtDay(iso: string): string {
@@ -26,9 +24,17 @@ export default function MatchupsPage() {
   const [weeks, setWeeks] = useState<number[]>([]);
   const [week, setWeek] = useState<number | null>(null);
   const [games, setGames] = useState<GameView[]>([]);
-  const [entry, setEntry] = useState(ENTRY_NAMES[0]);
+  const [entryNames, setEntryNames] = useState<string[]>([]);
+  const [entry, setEntry] = useState("");
   const [states, setStates] = useState<EntryState[]>([]);
   const [recs, setRecs] = useState<Recommendation[]>([]);
+
+  useEffect(() => {
+    fetch("/api/entries").then((r) => r.json())
+      .then((doc) => setEntryNames((doc.data ?? []).map((e: { attributes: { name: string } }) => e.attributes.name)));
+  }, []);
+
+  useEffect(() => { if (!entry && entryNames.length) setEntry(entryNames[0]); }, [entryNames, entry]);
 
   const loadMatchups = useCallback(async (w: number | null) => {
     const url = w ? `/api/matchups?filter[week]=${w}` : "/api/matchups";
@@ -131,7 +137,7 @@ export default function MatchupsPage() {
       <h1 className="text-2xl font-bold tracking-tight">Matchups</h1>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {ENTRY_NAMES.map((n) => (
+        {entryNames.map((n) => (
           <button key={n} onClick={() => setEntry(n)} className={tab(entry === n)}>{n}</button>
         ))}
         {weekPick && (
