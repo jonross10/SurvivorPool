@@ -1,0 +1,27 @@
+[
+  {
+    "id": "abc123",
+    "commence_time": "2025-09-08T00:20:00Z",
+    "home_team": "Buffalo Bills",
+    "away_team": "New York Jets",
+    "bookmakers": [
+      { "key": "draftkings", "markets": [ { "key": "h2h", "outcomes": [
+        { "name": "Buffalo Bills", "price": -300 },
+        { "name": "New York Jets", "price": 250 } ] } ] },
+      { "key": "fanduel", "markets": [ { "key": "h2h", "outcomes": [
+        { "name": "Buffalo Bills", "price": -320 },
+        { "name": "New York Jets", "price": 260 } ] } ] }
+    ]
+  },
+  {
+    "id": "def456",
+    "commence_time": "2025-09-08T20:25:00Z",
+    "home_team": "Washington Commanders",
+    "away_team": "Jacksonville Jaguars",
+    "bookmakers": [
+      { "key": "draftkings", "markets": [ { "key": "h2h", "outcomes": [
+        { "name": "Washington Commanders", "price": -150 },
+        { "name": "Jacksonville Jaguars", "price": 130 } ] } ] }
+    ]
+  }
+]
