@@ -48,15 +48,28 @@ export function errorDocument(errors: JsonApiError[]): { errors: JsonApiError[] 
 export function jsonApi(body: unknown, status = 200): NextResponse;
 ```
 
+### Query parameters
+
+- **Filtering uses the reserved `filter` family**: `filter[week]`, `filter[entry]`. In a
+  Next.js route these arrive as literal keys — read them with
+  `new URL(req.url).searchParams.get("filter[week]")`. A tiny helper
+  `getFilter(req, "week")` centralizes this.
+- **`safetyFloor`** (recommendations) is an implementation-specific parameter, not a filter —
+  it parameterizes the computation. Its name intentionally contains an uppercase letter so it
+  satisfies JSON:API's rule that implementation-specific query params contain a non-`a-z`
+  character (bare lowercase names like `floor` are reserved by the spec).
+- Missing/invalid filter values fall back to sensible defaults (`filter[week]` →
+  `currentWeek`; `filter[entry]` → first entry; `safetyFloor` → `0.6`).
+
 ## Resource Types & Endpoints
 
 | Method & path | Resource `type` | `id` | `attributes` | `meta` |
 |---|---|---|---|---|
-| `GET /api/recommendations?floor=` | `recommendation` | entry id | `{ entry, week, pick, prob, reasoning, greedyAlt, projectedPath }` | `{ currentWeek, floor }` |
-| `GET /api/matchups?week=N` | `game` | `${week}:${away}@${home}` | `{ week, home, away, kickoff, homeOdds, awayOdds, homeProb, awayProb, source }` | `{ currentWeek, weeks }` |
+| `GET /api/recommendations?safetyFloor=` | `recommendation` | entry id | `{ entry, week, pick, prob, reasoning, greedyAlt, projectedPath }` | `{ currentWeek, safetyFloor }` |
+| `GET /api/matchups?filter[week]=N` | `game` | `${week}:${away}@${home}` | `{ week, home, away, kickoff, homeOdds, awayOdds, homeProb, awayProb, source }` | `{ currentWeek, weeks }` |
 | `GET /api/schedule` | `game` | `${week}:${away}@${home}` | `{ week, home, away, kickoff }` | `{ weeks }` |
 | `GET /api/picks-state` | `entry` | entry id | `{ name, usedTeams, picksByWeek }` | `{ currentWeek }` |
-| `GET /api/grid?entry=` | `winprob` | `${week}:${team}` | `{ week, team, opponent, home, prob, source }` | `{ week, entry }` |
+| `GET /api/grid?filter[entry]=` | `winprob` | `${week}:${team}` | `{ week, team, opponent, home, prob, source }` | `{ week, entry }` |
 | `GET /api/log` | `pick` | `${entryId}:${week}` | `{ entry, week, team }` | — |
 | `POST /api/pick` | `pick` (req + res) | `${entryId}:${week}` | `{ entry, week, team, winProb }` | — |
 | `DELETE /api/pick` | `pick` (req) | — | request `{ entry, week }` → `metaDocument({ deleted: true })` | — |
