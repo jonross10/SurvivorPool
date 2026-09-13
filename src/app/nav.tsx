@@ -8,7 +8,6 @@ const LINKS = [
   { href: "/matchups", label: "Matchups" },
   { href: "/calendar", label: "Calendar" },
   { href: "/grid", label: "Grid" },
-  { href: "/log", label: "Log" },
 ];
 
 export default function Nav() {

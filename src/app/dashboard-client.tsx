@@ -4,7 +4,11 @@ import type { Recommendation } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
 
-type Rec = Recommendation & { currentPick?: string | null; entryId?: string };
+type Rec = Recommendation & {
+  currentPick?: string | null;
+  entryId?: string;
+  picksByWeek?: Record<number, string>;
+};
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
 
@@ -18,6 +22,7 @@ function timeAgo(iso: string | null): string {
 
 export default function DashboardClient() {
   const [recs, setRecs] = useState<Rec[]>([]);
+  const [weeks, setWeeks] = useState<number[]>([]);
   const [floor, setFloor] = useState(0.6);
   const [loading, setLoading] = useState(true);
   const [freshness, setFreshness] = useState<Freshness>({ fetchedAt: null, canRefreshNow: true, remainingMs: 0 });
@@ -31,6 +36,7 @@ export default function DashboardClient() {
       (d: { id: string; attributes: Rec }) => ({ ...d.attributes, entryId: d.id }),
     );
     setRecs(recsWithId);
+    setWeeks(doc.meta?.weeks ?? []);
     setLoading(false);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
@@ -203,6 +209,36 @@ export default function DashboardClient() {
                 >
                   Confirm pick
                 </button>
+              </div>
+            )}
+
+            {/* Season timeline (read-only) */}
+            {weeks.length > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <div className="flex gap-1 overflow-x-auto pb-1">
+                  {weeks.map((w) => {
+                    const team = r.picksByWeek?.[w];
+                    const isCurrent = w === r.week;
+                    return (
+                      <div
+                        key={w}
+                        className={`flex min-w-[44px] flex-col items-center rounded-lg border px-1 py-1 ${
+                          isCurrent ? "border-emerald-400 bg-emerald-50" : "border-slate-100"
+                        }`}
+                      >
+                        <span className="text-[10px] text-slate-400">W{w}</span>
+                        {team ? (
+                          <>
+                            <TeamLogo abbr={team} size={20} />
+                            <span className="text-[10px] font-semibold">{team}</span>
+                          </>
+                        ) : (
+                          <span className="py-1 text-slate-300">·</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

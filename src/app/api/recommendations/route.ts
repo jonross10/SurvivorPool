@@ -27,12 +27,15 @@ export async function GET(req: Request) {
 
   const recs = buildRecommendations(schedule, strengths, odds, usedByEntry, new Date(), safetyFloor);
   const week = recs[0]?.week ?? null;
+  const weeks = [...new Set(schedule.map((m) => m.week))].sort((a, b) => a - b);
   const data = recs.map((r) =>
     resource("recommendation", idByName[r.entry] ?? r.entry, {
       ...r,
       // The pick already recorded for the current week, or null if undecided.
       currentPick: week !== null ? (picksByWeekByEntry[r.entry]?.[week] ?? null) : null,
+      // The entry's full pick history (week → team), for the season timeline.
+      picksByWeek: picksByWeekByEntry[r.entry] ?? {},
     }),
   );
-  return jsonApi(document(data, { currentWeek: week, safetyFloor }));
+  return jsonApi(document(data, { currentWeek: week, safetyFloor, weeks }));
 }
