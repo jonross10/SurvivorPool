@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { WinProb } from "@/lib/types";
 import { ENTRY_NAMES } from "@/lib/entries";
+import { unwrapMany } from "@/lib/jsonapi-client";
 
 function color(p: number): string {
   const hue = Math.round(p * 120); // 0=red, 120=green
@@ -13,9 +14,9 @@ export default function GridPage() {
   const [wps, setWps] = useState<WinProb[]>([]);
 
   useEffect(() => {
-    fetch(`/api/grid?entry=${encodeURIComponent(entry)}`)
+    fetch(`/api/grid?filter[entry]=${encodeURIComponent(entry)}`)
       .then((r) => r.json())
-      .then((d) => setWps(d.winProbs));
+      .then((doc) => setWps(unwrapMany<WinProb>(doc)));
   }, [entry]);
 
   const weeks = [...new Set(wps.map((w) => w.week))].sort((a, b) => a - b);
