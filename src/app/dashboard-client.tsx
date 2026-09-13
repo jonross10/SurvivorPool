@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { Recommendation } from "@/lib/types";
+import type { Recommendation, WinProb } from "@/lib/types";
+import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
+import { useRanks } from "@/components/use-ranks";
 
 type Rec = Recommendation & {
   currentPick?: string | null;
@@ -27,6 +29,47 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [freshness, setFreshness] = useState<Freshness>({ fetchedAt: null, canRefreshNow: true, remainingMs: 0 });
   const [refreshing, setRefreshing] = useState(false);
+  const ranks = useRanks();
+
+  // Week-pick modal: choose/swap a team for one entry + week.
+  const [pickModal, setPickModal] = useState<{ entry: string; week: number; current?: string } | null>(null);
+  const [modalWps, setModalWps] = useState<WinProb[]>([]);
+
+  async function openPickModal(r: Rec, week: number) {
+    setPickModal({ entry: r.entry, week, current: r.picksByWeek?.[week] });
+    setModalWps([]);
+    const doc = await (await fetch(`/api/grid?filter[entry]=${encodeURIComponent(r.entry)}`)).json();
+    setModalWps(unwrapMany<WinProb>(doc));
+  }
+
+  async function pickForWeek(entry: string, week: number, team: string, prob: number) {
+    // Swap: if the week already has a different pick, remove it first (UNIQUE week).
+    if (pickModal?.current && pickModal.current !== team) {
+      await fetch("/api/pick", {
+        method: "DELETE",
+        headers: { "content-type": "application/vnd.api+json" },
+        body: JSON.stringify({ data: { type: "pick", attributes: { entry, week } } }),
+      });
+    }
+    const res = await fetch("/api/pick", {
+      method: "POST",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { type: "pick", attributes: { entry, week, team, winProb: prob } } }),
+    });
+    if (!res.ok) alert((await res.json()).errors?.[0]?.detail ?? "Pick failed");
+    setPickModal(null);
+    load();
+  }
+
+  async function clearWeek(entry: string, week: number) {
+    await fetch("/api/pick", {
+      method: "DELETE",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { type: "pick", attributes: { entry, week } } }),
+    });
+    setPickModal(null);
+    load();
+  }
 
   async function load() {
     setLoading(true);
@@ -212,7 +255,7 @@ export default function DashboardClient() {
               </div>
             )}
 
-            {/* Season timeline (read-only) */}
+            {/* Season timeline — click a week to pick/swap that entry's team */}
             {weeks.length > 0 && (
               <div className="mt-4 border-t border-slate-100 pt-3">
                 <div className="flex gap-1 overflow-x-auto pb-1">
@@ -220,9 +263,11 @@ export default function DashboardClient() {
                     const team = r.picksByWeek?.[w];
                     const isCurrent = w === r.week;
                     return (
-                      <div
+                      <button
                         key={w}
-                        className={`flex min-w-[44px] flex-col items-center rounded-lg border px-1 py-1 ${
+                        onClick={() => openPickModal(r, w)}
+                        title={`Pick ${r.entry}'s Week ${w} team`}
+                        className={`flex min-w-[44px] flex-col items-center rounded-lg border px-1 py-1 transition-colors hover:border-slate-400 hover:bg-slate-50 ${
                           isCurrent ? "border-emerald-400 bg-emerald-50" : "border-slate-100"
                         }`}
                       >
@@ -233,9 +278,9 @@ export default function DashboardClient() {
                             <span className="text-[10px] font-semibold">{team}</span>
                           </>
                         ) : (
-                          <span className="py-1 text-slate-300">·</span>
+                          <span className="py-1 text-slate-300">+</span>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -244,6 +289,72 @@ export default function DashboardClient() {
           </div>
         ))}
       </div>
+
+      {pickModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setPickModal(null)}
+        >
+          <div
+            className="flex max-h-[80vh] w-96 flex-col rounded-xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">{pickModal.entry} — Week {pickModal.week}</h3>
+              <button onClick={() => setPickModal(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            {pickModal.current && (
+              <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+                <span className="flex items-center gap-2">
+                  <TeamLogo abbr={pickModal.current} size={22} />
+                  <span className="font-semibold">{pickModal.current}</span>
+                  <span className="text-xs text-emerald-700">current pick</span>
+                </span>
+                <button
+                  onClick={() => clearWeek(pickModal.entry, pickModal.week)}
+                  className="text-sm text-red-500 underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">
+              Available teams · safest first
+            </p>
+            <div className="mt-1 flex-1 overflow-y-auto">
+              {modalWps.length === 0 ? (
+                <p className="py-4 text-center text-sm text-slate-400">Loading…</p>
+              ) : (
+                modalWps
+                  .filter((w) => w.week === pickModal.week)
+                  .sort((a, b) => b.prob - a.prob)
+                  .map((w) => (
+                    <button
+                      key={w.team}
+                      onClick={() => pickForWeek(pickModal.entry, pickModal.week, w.team, w.prob)}
+                      className="flex w-full items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <span className="flex items-center gap-2">
+                        <TeamLogo abbr={w.team} size={22} />
+                        <span className="font-semibold">{w.team}</span>
+                        {ranks[w.team] !== undefined && (
+                          <span className="text-[10px] font-medium text-slate-400">#{ranks[w.team]}</span>
+                        )}
+                        <span className="text-xs text-slate-400">{w.home ? "vs" : "@"} {w.opponent}</span>
+                      </span>
+                      <WinProbPill prob={w.prob} />
+                    </button>
+                  ))
+              )}
+              {modalWps.length > 0 && modalWps.filter((w) => w.week === pickModal.week).length === 0 && (
+                <p className="py-4 text-center text-sm text-slate-400">No available teams this week (all on bye or used).</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
