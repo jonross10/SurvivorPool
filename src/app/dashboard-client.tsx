@@ -7,10 +7,22 @@ import WinProbPill from "@/components/WinProbPill";
 
 type Rec = Recommendation & { currentPick?: string | null };
 
+interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "never";
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
+
 export default function DashboardClient() {
   const [recs, setRecs] = useState<Rec[]>([]);
   const [floor, setFloor] = useState(0.6);
   const [loading, setLoading] = useState(true);
+  const [freshness, setFreshness] = useState<Freshness>({ fetchedAt: null, canRefreshNow: true, remainingMs: 0 });
+  const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -20,6 +32,25 @@ export default function DashboardClient() {
     setLoading(false);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
+
+  async function loadFreshness() {
+    const doc = await (await fetch("/api/refresh")).json();
+    setFreshness(doc.meta ?? { fetchedAt: null, canRefreshNow: true, remainingMs: 0 });
+  }
+  useEffect(() => { loadFreshness(); }, []);
+
+  async function refreshStats() {
+    setRefreshing(true);
+    const res = await fetch("/api/refresh", { method: "POST" });
+    if (!res.ok) {
+      const doc = await res.json();
+      alert(doc.errors?.[0]?.detail ?? "Refresh failed");
+    } else {
+      await load();
+    }
+    await loadFreshness();
+    setRefreshing(false);
+  }
 
   async function confirm(r: Rec) {
     if (!r.pick) return;
@@ -51,16 +82,32 @@ export default function DashboardClient() {
         <h1 className="text-2xl font-bold tracking-tight">
           Survivor Pool <span className="text-slate-400">— Week {recs[0]?.week ?? "?"}</span>
         </h1>
-        <label className="flex items-center gap-2 text-sm text-slate-500">
-          Safety floor
-          <input
-            type="range" min={0} max={0.95} step={0.05}
-            value={floor} onChange={(e) => setFloor(Number(e.target.value))}
-            className="accent-emerald-600"
-          />
-          <span className="w-9 font-semibold text-slate-700">{Math.round(floor * 100)}%</span>
-        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">Updated {timeAgo(freshness.fetchedAt)}</span>
+          <button
+            onClick={refreshStats}
+            disabled={refreshing || !freshness.canRefreshNow}
+            title={
+              freshness.canRefreshNow
+                ? "Fetch the latest odds & rankings"
+                : `Available again in ${Math.ceil(freshness.remainingMs / 60000)}m`
+            }
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-40"
+          >
+            {refreshing ? "Refreshing…" : "↻ Refresh stats"}
+          </button>
+        </div>
       </div>
+
+      <label className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+        Safety floor
+        <input
+          type="range" min={0} max={0.95} step={0.05}
+          value={floor} onChange={(e) => setFloor(Number(e.target.value))}
+          className="accent-emerald-600"
+        />
+        <span className="w-9 font-semibold text-slate-700">{Math.round(floor * 100)}%</span>
+      </label>
 
       {loading && <p className="mt-4 text-slate-400">Loading…</p>}
 
