@@ -1,27 +1,34 @@
 "use client";
 import { useEffect, useState } from "react";
+import { unwrapMany } from "@/lib/jsonapi-client";
 
-type Log = Record<string, { week: number; team: string }[]>;
+interface PickAttrs { entry: string; week: number; team: string }
 
 export default function LogPage() {
-  const [log, setLog] = useState<Log>({});
+  const [picks, setPicks] = useState<PickAttrs[]>([]);
   useEffect(() => {
-    fetch("/api/log").then((r) => r.json()).then((d) => setLog(d.log));
+    fetch("/api/log").then((r) => r.json()).then((doc) => setPicks(unwrapMany<PickAttrs>(doc)));
   }, []);
+
+  const byEntry = new Map<string, PickAttrs[]>();
+  for (const p of picks) {
+    if (!byEntry.has(p.entry)) byEntry.set(p.entry, []);
+    byEntry.get(p.entry)!.push(p);
+  }
+
   return (
     <main style={{ fontFamily: "system-ui", padding: 24 }}>
       <h1>Pick Log</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
-        {Object.entries(log).map(([entry, picks]) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+        {[...byEntry.entries()].map(([entry, ps]) => (
           <div key={entry}>
             <h3>{entry}</h3>
             <ol>
-              {picks.map((p) => <li key={p.week}>W{p.week}: {p.team}</li>)}
+              {ps.sort((a, b) => a.week - b.week).map((p) => <li key={p.week}>W{p.week}: {p.team}</li>)}
             </ol>
           </div>
         ))}
       </div>
-      <p style={{ marginTop: 24 }}><a href="/">← Dashboard</a></p>
     </main>
   );
 }
