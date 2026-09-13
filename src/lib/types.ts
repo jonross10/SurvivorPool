@@ -44,3 +44,15 @@ export interface Recommendation {
   greedyAlt: { team: TeamAbbr; prob: number } | null;
   projectedPath: PathEntry[];
 }
+
+export interface GameView {
+  week: number;
+  home: TeamAbbr;
+  away: TeamAbbr;
+  kickoff: string;
+  homeOdds: number | null; // consensus American line, null when unposted (FPI source)
+  awayOdds: number | null;
+  homeProb: number;
+  awayProb: number;
+  source: "odds" | "fpi";
+}
