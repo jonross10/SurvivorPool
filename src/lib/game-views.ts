@@ -21,6 +21,7 @@ export function buildGameViews(
       out.push({
         week: g.week, home: g.home, away: g.away, kickoff: g.kickoff,
         homeOdds: posted.homeOdds, awayOdds: posted.awayOdds,
+        homeSpread: posted.homeSpread ?? null,
         homeProb: favProb, awayProb: dogProb, source: "odds",
       });
     } else {
@@ -28,7 +29,7 @@ export function buildGameViews(
       const awayProb = projectWinProb(fpi.get(g.away) ?? 0, fpi.get(g.home) ?? 0, false);
       out.push({
         week: g.week, home: g.home, away: g.away, kickoff: g.kickoff,
-        homeOdds: null, awayOdds: null, homeProb, awayProb, source: "fpi",
+        homeOdds: null, awayOdds: null, homeSpread: null, homeProb, awayProb, source: "fpi",
       });
     }
   }

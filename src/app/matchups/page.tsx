@@ -16,6 +16,11 @@ function fmtOdds(o: number | null): string {
   if (o === null) return "—";
   return o > 0 ? `+${o}` : `${o}`;
 }
+function fmtSpread(s: number | null): string {
+  if (s === null) return "";
+  if (s === 0) return "PK";
+  return s > 0 ? `+${s}` : `${s}`;
+}
 
 export default function MatchupsPage() {
   const [weeks, setWeeks] = useState<number[]>([]);
@@ -78,7 +83,7 @@ export default function MatchupsPage() {
     byDay.get(d)!.push(g);
   }
 
-  function teamButton(team: string, prob: number, odds: number | null, source: string) {
+  function teamButton(team: string, prob: number, odds: number | null, spread: number | null, source: string) {
     const isUsed = used.has(team);
     const isPick = weekPick === team;
     const isSuggested = suggested === team;
@@ -103,9 +108,14 @@ export default function MatchupsPage() {
         </span>
         <span className="flex items-center gap-2">
           <WinProbPill prob={prob} />
-          <span className="w-10 text-right text-xs text-slate-400">
-            {source === "odds" ? fmtOdds(odds) : "proj"}
-          </span>
+          {source === "odds" ? (
+            <span className="w-16 text-right text-xs text-slate-500">
+              {spread !== null && <span className="font-medium">{fmtSpread(spread)}</span>}{" "}
+              <span className="text-slate-400">{fmtOdds(odds)}</span>
+            </span>
+          ) : (
+            <span className="w-16 text-right text-xs text-slate-400">proj</span>
+          )}
         </span>
       </button>
     );
@@ -146,8 +156,8 @@ export default function MatchupsPage() {
             {gs.map((g) => (
               <div key={`${g.away}@${g.home}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <div className="text-xs text-slate-400">{g.away} @ {g.home}</div>
-                {teamButton(g.away, g.awayProb, g.awayOdds, g.source)}
-                {teamButton(g.home, g.homeProb, g.homeOdds, g.source)}
+                {teamButton(g.away, g.awayProb, g.awayOdds, g.homeSpread === null ? null : -g.homeSpread, g.source)}
+                {teamButton(g.home, g.homeProb, g.homeOdds, g.homeSpread, g.source)}
               </div>
             ))}
           </div>

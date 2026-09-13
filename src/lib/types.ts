@@ -18,6 +18,7 @@ export interface MoneylineGame {
   away: TeamAbbr;
   homeOdds: number; // American odds, e.g. -200
   awayOdds: number;
+  homeSpread?: number | null; // consensus point spread for the home team (negative = favored)
 }
 
 export interface WinProb {
@@ -52,6 +53,7 @@ export interface GameView {
   kickoff: string;
   homeOdds: number | null; // consensus American line, null when unposted (FPI source)
   awayOdds: number | null;
+  homeSpread: number | null; // consensus spread for the home team (negative = favored)
   homeProb: number;
   awayProb: number;
   source: "odds" | "fpi";

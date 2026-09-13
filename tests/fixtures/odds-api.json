@@ -5,12 +5,22 @@
     "home_team": "Buffalo Bills",
     "away_team": "New York Jets",
     "bookmakers": [
-      { "key": "draftkings", "markets": [ { "key": "h2h", "outcomes": [
-        { "name": "Buffalo Bills", "price": -300 },
-        { "name": "New York Jets", "price": 250 } ] } ] },
-      { "key": "fanduel", "markets": [ { "key": "h2h", "outcomes": [
-        { "name": "Buffalo Bills", "price": -320 },
-        { "name": "New York Jets", "price": 260 } ] } ] }
+      { "key": "draftkings", "markets": [
+        { "key": "h2h", "outcomes": [
+          { "name": "Buffalo Bills", "price": -300 },
+          { "name": "New York Jets", "price": 250 } ] },
+        { "key": "spreads", "outcomes": [
+          { "name": "Buffalo Bills", "price": -110, "point": -7.5 },
+          { "name": "New York Jets", "price": -110, "point": 7.5 } ] }
+      ] },
+      { "key": "fanduel", "markets": [
+        { "key": "h2h", "outcomes": [
+          { "name": "Buffalo Bills", "price": -320 },
+          { "name": "New York Jets", "price": 260 } ] },
+        { "key": "spreads", "outcomes": [
+          { "name": "Buffalo Bills", "price": -108, "point": -7.5 },
+          { "name": "New York Jets", "price": -112, "point": 7.5 } ] }
+      ] }
     ]
   },
   {
@@ -19,9 +29,14 @@
     "home_team": "Washington Commanders",
     "away_team": "Jacksonville Jaguars",
     "bookmakers": [
-      { "key": "draftkings", "markets": [ { "key": "h2h", "outcomes": [
-        { "name": "Washington Commanders", "price": -150 },
-        { "name": "Jacksonville Jaguars", "price": 130 } ] } ] }
+      { "key": "draftkings", "markets": [
+        { "key": "h2h", "outcomes": [
+          { "name": "Washington Commanders", "price": -150 },
+          { "name": "Jacksonville Jaguars", "price": 130 } ] },
+        { "key": "spreads", "outcomes": [
+          { "name": "Washington Commanders", "price": -110, "point": -3 },
+          { "name": "Jacksonville Jaguars", "price": -110, "point": 3 } ] }
+      ] }
     ]
   }
 ]

@@ -12,7 +12,7 @@ const strengths: TeamStrength[] = [
   { team: "KC", fpi: 8 }, { team: "DET", fpi: 4 },
 ];
 const odds: MoneylineGame[] = [
-  { week: 1, home: "BUF", away: "NYJ", homeOdds: -300, awayOdds: 250 },
+  { week: 1, home: "BUF", away: "NYJ", homeOdds: -300, awayOdds: 250, homeSpread: -7.5 },
 ];
 
 describe("buildGameViews", () => {
@@ -22,6 +22,7 @@ describe("buildGameViews", () => {
     expect(buf.source).toBe("odds");
     expect(buf.homeOdds).toBe(-300);
     expect(buf.awayOdds).toBe(250);
+    expect(buf.homeSpread).toBe(-7.5);
     expect(buf.homeProb).toBeGreaterThan(buf.awayProb);
     expect(buf.homeProb + buf.awayProb).toBeCloseTo(1, 6);
   });

@@ -26,9 +26,11 @@ describe("parseOdds", () => {
     expect(buf.week).toBe(1);
     expect(buf.homeOdds).toBe(-310); // avg(-300,-320)
     expect(buf.awayOdds).toBe(255);  // avg(250,260)
+    expect(buf.homeSpread).toBe(-7.5); // consensus home spread
     const was = games.find((g) => g.home === "WAS")!;
     expect(was.home).toBe("WAS"); // full name normalized
     expect(was.away).toBe("JAC");
+    expect(was.homeSpread).toBe(-3);
   });
   it("skips games not found in the schedule week lookup", () => {
     const games = parseOdds(fixture, new Map());
