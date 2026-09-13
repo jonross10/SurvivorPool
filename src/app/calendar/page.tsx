@@ -60,9 +60,11 @@ export default function CalendarPage() {
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-slate-50 px-2 py-1 text-left font-semibold">Team</th>
+              <th className="sticky left-0 z-20 w-[76px] min-w-[76px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
+                Team
+              </th>
               {weeks.map((w) => (
-                <th key={w} className="px-2 py-1 font-medium text-slate-500">W{w}</th>
+                <th key={w} className="min-w-[52px] border-b border-slate-200 px-2 py-1 font-medium text-slate-500">W{w}</th>
               ))}
             </tr>
           </thead>
@@ -71,7 +73,7 @@ export default function CalendarPage() {
               const dim = used.has(t);
               return (
                 <tr key={t} className={dim ? "opacity-40" : ""}>
-                  <td className="sticky left-0 z-10 bg-white px-2 py-1">
+                  <td className="sticky left-0 z-20 w-[76px] min-w-[76px] border-b border-r border-slate-200 bg-white px-3 py-1">
                     <TeamRow abbr={t} size={18} />
                   </td>
                   {weeks.map((w) => {
@@ -79,7 +81,7 @@ export default function CalendarPage() {
                     return (
                       <td
                         key={w}
-                        className={`border border-slate-100 px-2 py-1 text-center ${
+                        className={`border-b border-slate-100 px-2 py-1 text-center ${
                           c ? (c.home ? "bg-emerald-50" : "bg-slate-50 text-slate-500") : ""
                         }`}
                       >
