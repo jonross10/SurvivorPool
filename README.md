@@ -30,7 +30,7 @@ This replaces the old AWS-Lambda + Selenium scraper and Google Sheet.
 ## Setup (use your personal accounts)
 
 1. `npm install`
-2. Create a free **Neon** Postgres project; set `DATABASE_URL`.
+2. Create a free **Neon** Postgres project; set `NEON_DB_CONNECTION_URL`.
 3. Get a free key at **the-odds-api.com**; set `ODDS_API_KEY`.
 4. Set `APP_PASSWORD` (site gate), `CRON_SECRET` (cron auth), and `NFL_SEASON` (e.g. `2026`).
    See `.env.example`. For local dev put these in `.env`.
