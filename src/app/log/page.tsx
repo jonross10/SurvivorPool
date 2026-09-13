@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
+import TeamRow from "@/components/TeamRow";
 
 interface PickAttrs { entry: string; week: number; team: string }
 
@@ -17,15 +18,20 @@ export default function LogPage() {
   }
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: 24 }}>
-      <h1>Pick Log</h1>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+    <main className="mx-auto max-w-4xl px-4 py-6">
+      <h1 className="text-2xl font-bold tracking-tight">Pick Log</h1>
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {[...byEntry.entries()].map(([entry, ps]) => (
-          <div key={entry}>
-            <h3>{entry}</h3>
-            <ol>
-              {ps.sort((a, b) => a.week - b.week).map((p) => <li key={p.week}>W{p.week}: {p.team}</li>)}
-            </ol>
+          <div key={entry} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="font-bold">{entry}</h3>
+            <ul className="mt-2 space-y-1.5">
+              {ps.sort((a, b) => a.week - b.week).map((p) => (
+                <li key={p.week} className="flex items-center gap-2 text-sm">
+                  <span className="w-8 text-xs font-medium text-slate-400">W{p.week}</span>
+                  <TeamRow abbr={p.team} size={20} />
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       </div>

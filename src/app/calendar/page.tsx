@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import type { Matchup } from "@/lib/types";
+import TeamRow from "@/components/TeamRow";
 
 const ENTRY_NAMES = ["", "Jon", "Genevieve", "Elliot"]; // "" = none
 const TEAMS = [
@@ -40,32 +41,48 @@ export default function CalendarPage() {
   const used = new Set(states.find((s) => s.name === entry)?.usedTeams ?? []);
 
   return (
-    <main style={{ fontFamily: "system-ui", padding: 24 }}>
-      <h1>Season Calendar</h1>
-      <div style={{ marginBottom: 12 }}>
-        Dim used teams for:{" "}
-        <select value={entry} onChange={(e) => setEntry(e.target.value)}>
-          {ENTRY_NAMES.map((n) => <option key={n} value={n}>{n || "— none —"}</option>)}
-        </select>
+    <main className="mx-auto max-w-none px-4 py-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Season Calendar</h1>
+        <label className="text-sm text-slate-500">
+          Dim used teams for{" "}
+          <select
+            value={entry}
+            onChange={(e) => setEntry(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
+          >
+            {ENTRY_NAMES.map((n) => <option key={n} value={n}>{n || "— none —"}</option>)}
+          </select>
+        </label>
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", fontSize: 12 }}>
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="border-separate border-spacing-0 text-xs">
           <thead>
-            <tr><th style={{ padding: 4 }}>Team</th>{weeks.map((w) => <th key={w} style={{ padding: 4 }}>W{w}</th>)}</tr>
+            <tr>
+              <th className="sticky left-0 z-10 bg-slate-50 px-2 py-1 text-left font-semibold">Team</th>
+              {weeks.map((w) => (
+                <th key={w} className="px-2 py-1 font-medium text-slate-500">W{w}</th>
+              ))}
+            </tr>
           </thead>
           <tbody>
             {TEAMS.map((t) => {
               const dim = used.has(t);
               return (
-                <tr key={t} style={{ opacity: dim ? 0.35 : 1 }}>
-                  <td style={{ fontWeight: 700, padding: 4 }}>{t}</td>
+                <tr key={t} className={dim ? "opacity-40" : ""}>
+                  <td className="sticky left-0 z-10 bg-white px-2 py-1">
+                    <TeamRow abbr={t} size={18} />
+                  </td>
                   {weeks.map((w) => {
                     const c = cell.get(t)?.get(w);
                     return (
-                      <td key={w} style={{
-                        padding: 4, textAlign: "center", border: "1px solid #eee",
-                        background: c ? (c.home ? "#e8f5e9" : "#f5f5f5") : "white",
-                      }}>
+                      <td
+                        key={w}
+                        className={`border border-slate-100 px-2 py-1 text-center ${
+                          c ? (c.home ? "bg-emerald-50" : "bg-slate-50 text-slate-500") : ""
+                        }`}
+                      >
                         {c ? (c.home ? c.opp : `@${c.opp}`) : ""}
                       </td>
                     );
@@ -76,7 +93,7 @@ export default function CalendarPage() {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 12, color: "#888", marginTop: 8 }}>Green = home · grey = away · blank = BYE</p>
+      <p className="mt-2 text-xs text-slate-400">Green = home · grey = away · blank = BYE</p>
     </main>
   );
 }

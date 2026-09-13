@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import type { GameView, Recommendation } from "@/lib/types";
+import TeamLogo from "@/components/TeamLogo";
+import WinProbPill from "@/components/WinProbPill";
 
 const ENTRY_NAMES = ["Jon", "Genevieve", "Elliot"];
 
@@ -80,48 +82,70 @@ export default function MatchupsPage() {
     const isUsed = used.has(team);
     const isPick = weekPick === team;
     const isSuggested = suggested === team;
+    const stateClass = isUsed
+      ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+      : isPick
+      ? "border-emerald-500 bg-emerald-50"
+      : isSuggested
+      ? "border-dashed border-blue-400 hover:bg-slate-50"
+      : "border-slate-200 hover:bg-slate-50";
     return (
       <button
         onClick={() => pick(team)}
         disabled={isUsed}
-        style={{
-          display: "block", width: "100%", textAlign: "left", padding: 8, marginTop: 4,
-          border: isPick ? "2px solid #0a0" : isSuggested ? "2px dashed #06c" : "1px solid #ccc",
-          borderRadius: 6, background: isUsed ? "#f0f0f0" : "white",
-          color: isUsed ? "#999" : "black", cursor: isUsed ? "not-allowed" : "pointer",
-        }}
+        className={`mt-2 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${stateClass}`}
       >
-        <strong>{team}</strong> {Math.round(prob * 100)}% · {fmtOdds(odds)}
-        <span style={{ fontSize: 10, color: "#888" }}> {source}</span>
-        {isPick && " ✓"}{isSuggested && !isPick && " ★"}
+        <span className="flex items-center gap-2">
+          <TeamLogo abbr={team} size={22} />
+          <span className="font-semibold">{team}</span>
+          {isPick && <span className="text-emerald-600">✓</span>}
+          {isSuggested && !isPick && <span className="text-blue-500">★</span>}
+        </span>
+        <span className="flex items-center gap-2">
+          <WinProbPill prob={prob} />
+          <span className="w-10 text-right text-xs text-slate-400">
+            {source === "odds" ? fmtOdds(odds) : "proj"}
+          </span>
+        </span>
       </button>
     );
   }
 
+  const tab = (active: boolean) =>
+    `shrink-0 rounded-full px-3 py-1 text-sm transition-colors ${
+      active ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+    }`;
+
   return (
-    <main style={{ fontFamily: "system-ui", padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-      <h1>Matchups</h1>
-      <div style={{ marginBottom: 12 }}>
+    <main className="mx-auto max-w-5xl px-4 py-6">
+      <h1 className="text-2xl font-bold tracking-tight">Matchups</h1>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {ENTRY_NAMES.map((n) => (
-          <button key={n} onClick={() => setEntry(n)}
-            style={{ marginRight: 8, fontWeight: entry === n ? 700 : 400 }}>{n}</button>
+          <button key={n} onClick={() => setEntry(n)} className={tab(entry === n)}>{n}</button>
         ))}
-        {weekPick && <span style={{ marginLeft: 16 }}>Week {week} pick: <strong>{weekPick}</strong>{" "}
-          <button onClick={undo}>undo</button></span>}
+        {weekPick && (
+          <span className="ml-auto flex items-center gap-2 text-sm text-slate-500">
+            <TeamLogo abbr={weekPick} size={20} />
+            Week {week} pick: <strong className="text-slate-800">{weekPick}</strong>
+            <button onClick={undo} className="underline">undo</button>
+          </span>
+        )}
       </div>
-      <div style={{ marginBottom: 16, overflowX: "auto", whiteSpace: "nowrap" }}>
+
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
         {weeks.map((w) => (
-          <button key={w} onClick={() => loadMatchups(w)}
-            style={{ marginRight: 6, fontWeight: w === week ? 700 : 400 }}>W{w}</button>
+          <button key={w} onClick={() => loadMatchups(w)} className={tab(w === week)}>W{w}</button>
         ))}
       </div>
+
       {[...byDay.entries()].map(([day, gs]) => (
-        <section key={day} style={{ marginBottom: 20 }}>
-          <h3>{day}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+        <section key={day} className="mt-6">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{day}</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {gs.map((g) => (
-              <div key={`${g.away}@${g.home}`} style={{ border: "1px solid #eee", borderRadius: 8, padding: 10 }}>
-                <div style={{ fontSize: 12, color: "#888" }}>{g.away} @ {g.home}</div>
+              <div key={`${g.away}@${g.home}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="text-xs text-slate-400">{g.away} @ {g.home}</div>
                 {teamButton(g.away, g.awayProb, g.awayOdds, g.source)}
                 {teamButton(g.home, g.homeProb, g.homeOdds, g.source)}
               </div>
