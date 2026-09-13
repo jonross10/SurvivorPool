@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import type { Recommendation } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
 
+type Rec = Recommendation & { currentPick?: string | null };
+
 export default function DashboardClient() {
-  const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [recs, setRecs] = useState<Rec[]>([]);
   const [floor, setFloor] = useState(0.6);
   const [loading, setLoading] = useState(true);
 
@@ -12,12 +14,12 @@ export default function DashboardClient() {
     setLoading(true);
     const res = await fetch(`/api/recommendations?safetyFloor=${floor}`);
     const doc = await res.json();
-    setRecs(unwrapMany<Recommendation>(doc));
+    setRecs(unwrapMany<Rec>(doc));
     setLoading(false);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
 
-  async function confirm(r: Recommendation) {
+  async function confirm(r: Rec) {
     if (!r.pick) return;
     const res = await fetch("/api/pick", {
       method: "POST",
@@ -32,6 +34,15 @@ export default function DashboardClient() {
     } else load();
   }
 
+  async function undo(r: Rec) {
+    await fetch("/api/pick", {
+      method: "DELETE",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { type: "pick", attributes: { entry: r.entry, week: r.week } } }),
+    });
+    load();
+  }
+
   return (
     <main style={{ fontFamily: "system-ui", padding: 24, maxWidth: 900, margin: "0 auto" }}>
       <h1>Survivor Pool — Week {recs[0]?.week ?? "?"}</h1>
@@ -44,16 +55,29 @@ export default function DashboardClient() {
         {recs.map((r) => (
           <div key={r.entry} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16 }}>
             <h2 style={{ margin: 0 }}>{r.entry}</h2>
-            <p style={{ fontSize: 24, fontWeight: 700 }}>
-              {r.pick ?? "—"} {r.pick && <span>({Math.round(r.prob * 100)}%)</span>}
-            </p>
-            <p style={{ color: "#555" }}>{r.reasoning}</p>
-            {r.greedyAlt && r.greedyAlt.team !== r.pick && (
-              <p style={{ fontSize: 12, color: "#888" }}>
-                Greedy alt: {r.greedyAlt.team} ({Math.round(r.greedyAlt.prob * 100)}%)
-              </p>
+            {r.currentPick ? (
+              <>
+                <p style={{ fontSize: 24, fontWeight: 700, color: "#0a7a0a" }}>
+                  {r.currentPick} <span style={{ fontSize: 16 }}>✓ picked</span>
+                </p>
+                <p style={{ color: "#555" }}>Locked in for Week {r.week}.</p>
+                <button onClick={() => undo(r)}>Undo pick</button>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 14, color: "#888", margin: "4px 0 0" }}>Suggested</p>
+                <p style={{ fontSize: 24, fontWeight: 700, marginTop: 2 }}>
+                  {r.pick ?? "—"} {r.pick && <span>({Math.round(r.prob * 100)}%)</span>}
+                </p>
+                <p style={{ color: "#555" }}>{r.reasoning}</p>
+                {r.greedyAlt && r.greedyAlt.team !== r.pick && (
+                  <p style={{ fontSize: 12, color: "#888" }}>
+                    Greedy alt: {r.greedyAlt.team} ({Math.round(r.greedyAlt.prob * 100)}%)
+                  </p>
+                )}
+                <button onClick={() => confirm(r)} disabled={!r.pick}>Confirm pick</button>
+              </>
             )}
-            <button onClick={() => confirm(r)} disabled={!r.pick}>Confirm pick</button>
           </div>
         ))}
       </div>

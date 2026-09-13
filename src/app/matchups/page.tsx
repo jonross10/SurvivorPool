@@ -65,8 +65,12 @@ export default function MatchupsPage() {
     await loadState();
   }
 
+  // Sort by kickoff so days appear in chronological order (and games within a day too).
   const byDay = new Map<string, GameView[]>();
-  for (const g of games) {
+  const sorted = [...games].sort(
+    (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime(),
+  );
+  for (const g of sorted) {
     const d = fmtDay(g.kickoff);
     if (!byDay.has(d)) byDay.set(d, []);
     byDay.get(d)!.push(g);
