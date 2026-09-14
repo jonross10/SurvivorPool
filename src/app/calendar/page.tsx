@@ -1,9 +1,22 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
-import type { Matchup } from "@/lib/types";
+import type { Matchup, GameResult } from "@/lib/types";
 import TeamRow from "@/components/TeamRow";
 import { useRanks } from "@/components/use-ranks";
+
+type CalGame = Matchup & { result?: GameResult | null };
+type Outcome = "won" | "lost" | "tie" | "live" | null;
+
+/** How the given team fared in a game, or null if it hasn't been decided yet. */
+function outcomeFor(team: string, r: GameResult | null | undefined): Outcome {
+  if (!r) return null;
+  if (r.inProgress && !r.completed) return "live";
+  if (!r.completed) return null;
+  if (r.winner === team) return "won";
+  if (r.winner === null) return "tie";
+  return "lost";
+}
 
 const TEAMS = [
   "ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB",
@@ -14,7 +27,7 @@ const TEAMS = [
 interface EntryState { name: string; usedTeams: string[] }
 
 export default function CalendarPage() {
-  const [games, setGames] = useState<Matchup[]>([]);
+  const [games, setGames] = useState<CalGame[]>([]);
   const [weeks, setWeeks] = useState<number[]>([]);
   const [entryNames, setEntryNames] = useState<string[]>([]);
   const [entry, setEntry] = useState("");
@@ -32,19 +45,24 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetch("/api/schedule").then((r) => r.json()).then((doc) => {
-      setGames(unwrapMany<Matchup>(doc));
+      setGames(unwrapMany<CalGame>(doc));
       setWeeks(doc.meta?.weeks ?? []);
     });
     fetch("/api/picks-state").then((r) => r.json()).then((doc) => setStates(unwrapMany<EntryState>(doc)));
   }, []);
 
-  // cell[team][week] = { opp, home } or undefined (BYE)
+  // cell[team][week] = { opp, home, outcome, score } or undefined (BYE)
+  type Cell = { opp: string; home: boolean; outcome: Outcome; score: string | null };
   const cell = useMemo(() => {
-    const m = new Map<string, Map<number, { opp: string; home: boolean }>>();
+    const m = new Map<string, Map<number, Cell>>();
     for (const t of TEAMS) m.set(t, new Map());
     for (const g of games) {
-      m.get(g.home)?.set(g.week, { opp: g.away, home: true });
-      m.get(g.away)?.set(g.week, { opp: g.home, home: false });
+      const r = g.result ?? null;
+      const score = r && r.homeScore !== null && r.awayScore !== null
+        ? { home: `${r.homeScore}–${r.awayScore}`, away: `${r.awayScore}–${r.homeScore}` }
+        : null;
+      m.get(g.home)?.set(g.week, { opp: g.away, home: true, outcome: outcomeFor(g.home, r), score: score?.home ?? null });
+      m.get(g.away)?.set(g.week, { opp: g.home, home: false, outcome: outcomeFor(g.away, r), score: score?.away ?? null });
     }
     return m;
   }, [games]);
@@ -89,12 +107,18 @@ export default function CalendarPage() {
                   </td>
                   {weeks.map((w) => {
                     const c = cell.get(t)?.get(w);
+                    const played =
+                      c?.outcome === "won" ? "bg-emerald-100 font-semibold text-emerald-800"
+                      : c?.outcome === "lost" ? "bg-red-100 text-red-700"
+                      : c?.outcome === "tie" ? "bg-amber-50 text-amber-700"
+                      : c?.outcome === "live" ? "bg-amber-100 text-amber-800"
+                      : null;
+                    const upcoming = c ? (c.home ? "bg-emerald-50" : "bg-slate-50 text-slate-500") : "";
                     return (
                       <td
                         key={w}
-                        className={`border-b border-slate-100 px-2 py-1 text-center ${
-                          c ? (c.home ? "bg-emerald-50" : "bg-slate-50 text-slate-500") : ""
-                        }`}
+                        title={c?.score ?? undefined}
+                        className={`border-b border-slate-100 px-2 py-1 text-center ${played ?? upcoming}`}
                       >
                         {c ? (c.home ? c.opp : `@${c.opp}`) : ""}
                       </td>
@@ -106,7 +130,10 @@ export default function CalendarPage() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-slate-400">Green = home · grey = away · blank = BYE</p>
+      <p className="mt-2 text-xs text-slate-400">
+        Played: <span className="text-emerald-700">green = win</span> · <span className="text-red-600">red = loss</span> ·
+        {" "}Upcoming: green = home · grey = away · blank = BYE
+      </p>
     </main>
   );
 }
