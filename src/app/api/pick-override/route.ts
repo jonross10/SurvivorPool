@@ -10,12 +10,16 @@ async function readAttrs(req: Request): Promise<Partial<Attrs>> {
   return body?.data?.attributes ?? {};
 }
 
+function isValidWeek(week: unknown): week is number {
+  return typeof week === "number" && Number.isInteger(week) && week >= 1;
+}
+
 export async function POST(req: Request) {
   const { entry, week, outcome } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
-  if (!entryId || week === undefined || (outcome !== "survived" && outcome !== "out")) {
+  if (!entryId || !isValidWeek(week) || (outcome !== "survived" && outcome !== "out")) {
     return jsonApi(
-      errorDocument([{ status: "400", title: "Invalid override", detail: "entry, week, and outcome (survived|out) are required" }]),
+      errorDocument([{ status: "400", title: "Invalid override", detail: "entry, a positive integer week, and outcome (survived|out) are required" }]),
       400,
     );
   }
@@ -26,9 +30,9 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const { entry, week } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
-  if (!entryId || week === undefined) {
+  if (!entryId || !isValidWeek(week)) {
     return jsonApi(
-      errorDocument([{ status: "400", title: "Invalid request", detail: "entry and week are required" }]),
+      errorDocument([{ status: "400", title: "Invalid request", detail: "entry and a positive integer week are required" }]),
       400,
     );
   }

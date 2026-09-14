@@ -42,18 +42,31 @@ export async function getResultsFresh(
 ): Promise<GameResult[]> {
   const cached = await getCache<GameResult[]>(KEY);
   const prior = cached?.payload ?? [];
+  // Clamp to the regular-season range so an empty schedule (week 1) or a
+  // finished season (week 19) can't ask ESPN for a week that doesn't exist.
+  const wk = Math.min(Math.max(week, 1), 18);
 
   if (prior.length === 0) {
     const all: GameResult[] = [];
-    for (let w = 1; w <= week; w++) all.push(...(await fetchWeekResults(w, season)));
+    for (let w = 1; w <= wk; w++) {
+      try {
+        all.push(...(await fetchWeekResults(w, season)));
+      } catch {
+        // Skip weeks ESPN can't serve yet; keep seeding the rest.
+      }
+    }
     await setCache(KEY, all);
     return all;
   }
 
-  if (!shouldRefetch(prior, week, cached?.fetchedAt ?? null, now)) return prior;
+  if (!shouldRefetch(prior, wk, cached?.fetchedAt ?? null, now)) return prior;
 
-  const fresh = await fetchWeekResults(week, season);
-  const merged = mergeResults(prior, fresh);
-  await setCache(KEY, merged);
-  return merged;
+  try {
+    const fresh = await fetchWeekResults(wk, season);
+    const merged = mergeResults(prior, fresh);
+    await setCache(KEY, merged);
+    return merged;
+  } catch {
+    return prior; // keep the last-known results if the live fetch fails
+  }
 }
