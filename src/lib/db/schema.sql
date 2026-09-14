@@ -20,6 +20,15 @@ CREATE TABLE IF NOT EXISTS cache (
   fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE entries ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}';
+
+CREATE TABLE IF NOT EXISTS pick_overrides (
+  entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+  week     INTEGER NOT NULL,
+  outcome  TEXT NOT NULL CHECK (outcome IN ('survived', 'out')),
+  PRIMARY KEY (entry_id, week)
+);
+
 INSERT INTO entries (id, name) VALUES
   ('jon','Jon'), ('genevieve','Genevieve'), ('elliot','Elliot')
 ON CONFLICT (id) DO NOTHING;

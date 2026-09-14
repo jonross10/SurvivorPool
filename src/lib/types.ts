@@ -7,6 +7,21 @@ export interface Matchup {
   kickoff: string; // ISO
 }
 
+export interface GameResult {
+  week: number;
+  home: TeamAbbr;
+  away: TeamAbbr;
+  kickoff: string; // ISO
+  homeScore: number | null; // null until the game has started
+  awayScore: number | null;
+  winner: TeamAbbr | null; // null = tie (if completed) or not yet decided
+  completed: boolean; // status.type.completed
+  inProgress: boolean; // status.type.state === "in"
+  statusDetail: string; // e.g. "Final", "Q3 5:22", "Sun 1:00 PM"
+}
+
+export type PickOutcome = "won" | "lost" | "tie" | "pending" | "live";
+
 export interface TeamStrength {
   team: TeamAbbr;
   fpi: number;
@@ -59,7 +74,12 @@ export interface GameView {
   source: "odds" | "fpi";
 }
 
+export interface EntrySettings {
+  ties_survive?: boolean; // absent → treated as true
+}
+
 export interface Entry {
   id: string;
   name: string;
+  settings: EntrySettings;
 }

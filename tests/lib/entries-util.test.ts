@@ -13,7 +13,7 @@ describe("validateEntryName", () => {
 
 describe("nameToId", () => {
   it("maps entry names to ids", () => {
-    const map = nameToId([{ id: "a1", name: "Jon" }, { id: "b2", name: "Sarah" }]);
+    const map = nameToId([{ id: "a1", name: "Jon", settings: {} }, { id: "b2", name: "Sarah", settings: {} }]);
     expect(map).toEqual({ Jon: "a1", Sarah: "b2" });
   });
 });
