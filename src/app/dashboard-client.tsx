@@ -244,8 +244,11 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      <label className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-        Safety floor
+      <label
+        className="mt-3 flex items-center gap-2 text-sm text-slate-500"
+        title="Won't suggest a team below this win chance for this week's pick. Higher = safer now; lower = trust the season-long plan."
+      >
+        Min. win chance
         <input
           type="range" min={0} max={0.95} step={0.05}
           value={floor} onChange={(e) => setFloor(Number(e.target.value))}
