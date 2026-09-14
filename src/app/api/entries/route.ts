@@ -1,10 +1,25 @@
-import { getEntries, createEntry } from "@/lib/db/entries-repo";
+import { createEntry } from "@/lib/db/entries-repo";
 import { EmptyNameError, DuplicateNameError } from "@/lib/entries-util";
+import { getCache } from "@/lib/db/cache-repo";
+import { getResultsFresh } from "@/lib/sources/results";
+import { getEntryStatuses } from "@/lib/entry-status";
+import { currentWeek } from "@/lib/week";
 import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
+import type { Matchup } from "@/lib/types";
 
 export async function GET() {
-  const entries = await getEntries();
-  const data = entries.map((e) => resource("entry", e.id, { name: e.name }));
+  const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
+  const week = currentWeek(schedule, new Date());
+  const results = await getResultsFresh(week, Number(process.env.NFL_SEASON ?? "2026"));
+  const statuses = await getEntryStatuses(results);
+  const data = statuses.map(({ entry, status }) =>
+    resource("entry", entry.id, {
+      name: entry.name,
+      settings: entry.settings,
+      eliminated: status.eliminated,
+      eliminatedWeek: status.eliminatedWeek,
+    }),
+  );
   return jsonApi(document(data));
 }
 

@@ -1,12 +1,12 @@
 import { unstable_cache, revalidateTag } from "next/cache";
 import { sql } from "./client";
 import { validateEntryName, DuplicateNameError } from "../entries-util";
-import type { Entry } from "../types";
+import type { Entry, EntrySettings } from "../types";
 
 const TAG = "entries";
 
 async function fetchEntries(): Promise<Entry[]> {
-  return (await sql`SELECT id, name FROM entries ORDER BY name`) as unknown as Entry[];
+  return (await sql`SELECT id, name, settings FROM entries ORDER BY name`) as unknown as Entry[];
 }
 
 /** Cached list of entries; invalidated by createEntry/deleteEntry via revalidateTag. */
@@ -19,7 +19,7 @@ export async function createEntry(name: string): Promise<Entry> {
   const id = crypto.randomUUID();
   await sql`INSERT INTO entries (id, name) VALUES (${id}, ${clean})`;
   revalidateTag(TAG);
-  return { id, name: clean };
+  return { id, name: clean, settings: {} };
 }
 
 export async function deleteEntry(id: string): Promise<boolean> {
@@ -27,4 +27,9 @@ export async function deleteEntry(id: string): Promise<boolean> {
   const rows = (await sql`DELETE FROM entries WHERE id = ${id} RETURNING id`) as unknown[];
   revalidateTag(TAG);
   return rows.length > 0;
+}
+
+export async function updateSettings(id: string, settings: EntrySettings): Promise<void> {
+  await sql`UPDATE entries SET settings = ${JSON.stringify(settings)}::jsonb WHERE id = ${id}`;
+  revalidateTag(TAG);
 }
