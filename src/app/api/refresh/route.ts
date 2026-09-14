@@ -4,9 +4,10 @@ import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 import { cooldownRemainingMs } from "@/lib/refresh-cooldown";
 import { currentSeason } from "@/lib/week";
 
-/** When the data was last refreshed (the odds cache is written last by ingestAll). */
+/** When the data was last refreshed. Anchored on the schedule cache, which is
+ *  always written on a successful refresh (odds are best-effort and may not be). */
 async function lastFetchedAt(): Promise<string | null> {
-  return (await getCache<unknown>("odds"))?.fetchedAt ?? null;
+  return (await getCache<unknown>("schedule"))?.fetchedAt ?? null;
 }
 
 export async function GET() {
@@ -29,6 +30,15 @@ export async function POST() {
       429,
     );
   }
-  await ingestAll(Number(process.env.NFL_SEASON) || currentSeason(new Date()), process.env.ODDS_API_KEY ?? "");
-  return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString() }));
+  try {
+    const result = await ingestAll(
+      Number(process.env.NFL_SEASON) || currentSeason(new Date()),
+      process.env.ODDS_API_KEY ?? "",
+    );
+    return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString(), ...result }));
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error("[refresh] ingest failed:", detail);
+    return jsonApi(errorDocument([{ status: "500", title: "Refresh failed", detail }]), 500);
+  }
 }
