@@ -72,6 +72,7 @@ export interface GameView {
   homeProb: number;
   awayProb: number;
   source: "odds" | "fpi";
+  result?: GameResult | null; // final/live score, attached by the matchups route
 }
 
 export interface EntrySettings {

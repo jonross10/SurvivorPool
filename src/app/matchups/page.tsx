@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
-import type { GameView, Recommendation } from "@/lib/types";
+import type { GameView, GameResult, Recommendation } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
 import { useRanks } from "@/components/use-ranks";
@@ -91,12 +91,27 @@ export default function MatchupsPage() {
     byDay.get(d)!.push(g);
   }
 
-  function teamButton(team: string, prob: number, odds: number | null, spread: number | null, source: string) {
+  function teamButton(
+    team: string, prob: number, odds: number | null, spread: number | null,
+    source: string, result: GameResult | null,
+  ) {
     const isUsed = used.has(team);
     const isPick = weekPick === team;
     const isSuggested = suggested === team;
+    const completed = !!result?.completed;
+    const live = !!result?.inProgress && !completed;
+    const teamScore = result ? (result.home === team ? result.homeScore : result.awayScore) : null;
+    const isWinner = completed && result!.winner === team;
+    const isLoser = completed && result!.winner !== null && result!.winner !== team;
+
     const stateClass = isUsed
       ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+      : isWinner
+      ? "border-emerald-500 bg-emerald-50"
+      : isLoser
+      ? "border-slate-200 bg-white opacity-60"
+      : live
+      ? "border-amber-300 bg-amber-50"
       : isPick
       ? "border-emerald-500 bg-emerald-50"
       : isSuggested
@@ -110,24 +125,34 @@ export default function MatchupsPage() {
       >
         <span className="flex items-center gap-2">
           <TeamLogo abbr={team} size={22} />
-          <span className="font-semibold">{team}</span>
+          <span className={`font-semibold ${isWinner ? "text-emerald-800" : ""}`}>{team}</span>
           {ranks[team] !== undefined && (
             <span className="text-[10px] font-medium text-slate-400" title="Power ranking">#{ranks[team]}</span>
           )}
           {isPick && <span className="text-emerald-600">✓</span>}
-          {isSuggested && !isPick && <span className="text-blue-500">★</span>}
+          {isSuggested && !isPick && !completed && !live && <span className="text-blue-500">★</span>}
         </span>
-        <span className="flex items-center gap-2">
-          <WinProbPill prob={prob} />
-          {source === "odds" ? (
-            <span className="w-16 text-right text-xs text-slate-500">
-              {spread !== null && <span className="font-medium">{fmtSpread(spread)}</span>}{" "}
-              <span className="text-slate-400">{fmtOdds(odds)}</span>
-            </span>
-          ) : (
-            <span className="w-16 text-right text-xs text-slate-400">proj</span>
-          )}
-        </span>
+        {completed || live ? (
+          <span
+            className={`text-lg font-bold tabular-nums ${
+              isWinner ? "text-emerald-700" : live ? "text-amber-700" : isLoser ? "text-slate-400" : "text-slate-600"
+            }`}
+          >
+            {teamScore ?? "—"}
+          </span>
+        ) : (
+          <span className="flex items-center gap-2">
+            <WinProbPill prob={prob} />
+            {source === "odds" ? (
+              <span className="w-16 text-right text-xs text-slate-500">
+                {spread !== null && <span className="font-medium">{fmtSpread(spread)}</span>}{" "}
+                <span className="text-slate-400">{fmtOdds(odds)}</span>
+              </span>
+            ) : (
+              <span className="w-16 text-right text-xs text-slate-400">proj</span>
+            )}
+          </span>
+        )}
       </button>
     );
   }
@@ -166,9 +191,16 @@ export default function MatchupsPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {gs.map((g) => (
               <div key={`${g.away}@${g.home}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="text-xs text-slate-400">{g.away} @ {g.home}</div>
-                {teamButton(g.away, g.awayProb, g.awayOdds, g.homeSpread === null ? null : -g.homeSpread, g.source)}
-                {teamButton(g.home, g.homeProb, g.homeOdds, g.homeSpread, g.source)}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">{g.away} @ {g.home}</span>
+                  {g.result?.completed ? (
+                    <span className="font-medium text-slate-500">Final</span>
+                  ) : g.result?.inProgress ? (
+                    <span className="font-medium text-amber-600">LIVE · {g.result.statusDetail}</span>
+                  ) : null}
+                </div>
+                {teamButton(g.away, g.awayProb, g.awayOdds, g.homeSpread === null ? null : -g.homeSpread, g.source, g.result ?? null)}
+                {teamButton(g.home, g.homeProb, g.homeOdds, g.homeSpread, g.source, g.result ?? null)}
               </div>
             ))}
           </div>
