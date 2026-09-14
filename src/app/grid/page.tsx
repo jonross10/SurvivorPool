@@ -42,7 +42,10 @@ export default function GridPage() {
   useEffect(() => { load(); }, [load]);
 
   const weeks = [...new Set(wps.map((w) => w.week))].sort((a, b) => a - b);
-  const teams = [...new Set(wps.map((w) => w.team))].sort();
+  // Order teams by power ranking (best first); unranked teams fall to the bottom.
+  const teams = [...new Set(wps.map((w) => w.team))].sort(
+    (a, b) => (ranks[a] ?? Infinity) - (ranks[b] ?? Infinity),
+  );
   const cell = new Map(wps.map((w) => [`${w.week}:${w.team}`, w]));
 
   async function confirmPick() {
