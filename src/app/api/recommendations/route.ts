@@ -4,7 +4,7 @@ import { nameToId } from "@/lib/entries-util";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
 import { pickResultViews } from "@/lib/elimination";
-import { currentWeek } from "@/lib/week";
+import { currentWeek, currentSeason } from "@/lib/week";
 import { resource, document, jsonApi } from "@/lib/jsonapi";
 import type { Matchup, TeamStrength, MoneylineGame, TeamAbbr } from "@/lib/types";
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
 
   const cur = currentWeek(schedule, new Date());
-  const results = await getResultsFresh(cur, Number(process.env.NFL_SEASON ?? "2026"));
+  const results = await getResultsFresh(cur, Number(process.env.NFL_SEASON) || currentSeason(new Date()));
   // getEntryStatuses already loaded each entry with its picks; reuse that to
   // derive the used-team set and per-week pick map without re-querying.
   const statuses = await getEntryStatuses(results);

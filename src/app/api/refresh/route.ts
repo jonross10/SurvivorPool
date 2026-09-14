@@ -2,6 +2,7 @@ import { ingestAll } from "@/lib/sources/ingest";
 import { getCache } from "@/lib/db/cache-repo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 import { cooldownRemainingMs } from "@/lib/refresh-cooldown";
+import { currentSeason } from "@/lib/week";
 
 /** When the data was last refreshed (the odds cache is written last by ingestAll). */
 async function lastFetchedAt(): Promise<string | null> {
@@ -28,6 +29,6 @@ export async function POST() {
       429,
     );
   }
-  await ingestAll(Number(process.env.NFL_SEASON ?? "2026"), process.env.ODDS_API_KEY ?? "");
+  await ingestAll(Number(process.env.NFL_SEASON) || currentSeason(new Date()), process.env.ODDS_API_KEY ?? "");
   return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString() }));
 }
