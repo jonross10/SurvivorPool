@@ -22,7 +22,7 @@ export default function Nav() {
   return (
     <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <span className="font-bold tracking-tight">🏈 Survivor</span>
+        <Link href="/" className="font-bold tracking-tight transition-opacity hover:opacity-70">🏈 Survivor</Link>
 
         {/* Desktop links */}
         <div className="hidden items-center gap-1 sm:flex">
