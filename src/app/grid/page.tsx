@@ -23,7 +23,11 @@ export default function GridPage() {
 
   useEffect(() => {
     fetch("/api/entries").then((r) => r.json())
-      .then((doc) => setEntryNames((doc.data ?? []).map((e: { attributes: { name: string } }) => e.attributes.name)));
+      .then((doc) => setEntryNames(
+        (doc.data ?? [])
+          .filter((e: { attributes: { eliminated?: boolean } }) => !e.attributes.eliminated)
+          .map((e: { attributes: { name: string } }) => e.attributes.name),
+      ));
   }, []);
 
   useEffect(() => { if (!entry && entryNames.length) setEntry(entryNames[0]); }, [entryNames, entry]);

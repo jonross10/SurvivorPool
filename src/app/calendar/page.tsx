@@ -23,7 +23,11 @@ export default function CalendarPage() {
 
   useEffect(() => {
     fetch("/api/entries").then((r) => r.json())
-      .then((doc) => setEntryNames((doc.data ?? []).map((e: { attributes: { name: string } }) => e.attributes.name)));
+      .then((doc) => setEntryNames(
+        (doc.data ?? [])
+          .filter((e: { attributes: { eliminated?: boolean } }) => !e.attributes.eliminated)
+          .map((e: { attributes: { name: string } }) => e.attributes.name),
+      ));
   }, []);
 
   useEffect(() => {

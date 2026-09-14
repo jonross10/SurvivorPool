@@ -10,7 +10,21 @@ type Rec = Recommendation & {
   currentPick?: string | null;
   entryId?: string;
   picksByWeek?: Record<number, string>;
+  eliminated?: boolean;
+  eliminatedWeek?: number | null;
+  settings?: { ties_survive?: boolean };
+  resultsByWeek?: Record<number, {
+    week: number; team: string; outcome: "won" | "lost" | "tie" | "pending" | "live";
+    teamScore: number | null; oppScore: number | null; opponent: string | null; statusDetail: string;
+  }>;
 };
+
+function cellClasses(outcome: string | undefined, isCurrent: boolean): string {
+  if (outcome === "won" || outcome === "tie") return "border-emerald-400 bg-emerald-50";
+  if (outcome === "lost") return "border-red-400 bg-red-50";
+  if (outcome === "live") return "border-amber-400 bg-amber-50";
+  return isCurrent ? "border-emerald-400 bg-emerald-50" : "border-slate-100";
+}
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
 
@@ -73,13 +87,23 @@ export default function DashboardClient() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch(`/api/recommendations?safetyFloor=${floor}`);
-    const doc = await res.json();
-    const recsWithId: Rec[] = (doc.data ?? []).map(
-      (d: { id: string; attributes: Rec }) => ({ ...d.attributes, entryId: d.id }),
+    const [recDoc, entriesDoc] = await Promise.all([
+      fetch(`/api/recommendations?safetyFloor=${floor}`).then((r) => r.json()),
+      fetch(`/api/entries`).then((r) => r.json()),
+    ]);
+    const settingsByName: Record<string, { ties_survive?: boolean }> = Object.fromEntries(
+      (entriesDoc.data ?? []).map((d: { attributes: { name: string; settings?: { ties_survive?: boolean } } }) =>
+        [d.attributes.name, d.attributes.settings ?? {}]),
+    );
+    const recsWithId: Rec[] = (recDoc.data ?? []).map(
+      (d: { id: string; attributes: Rec }) => ({
+        ...d.attributes,
+        entryId: d.id,
+        settings: settingsByName[d.attributes.entry] ?? {},
+      }),
     );
     setRecs(recsWithId);
-    setWeeks(doc.meta?.weeks ?? []);
+    setWeeks(recDoc.meta?.weeks ?? []);
     setLoading(false);
   }
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
@@ -154,6 +178,35 @@ export default function DashboardClient() {
     load();
   }
 
+  async function setTiesSurvive(r: Rec, value: boolean) {
+    await fetch(`/api/entries/${r.entryId ?? ""}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { attributes: { settings: { ...(r.settings ?? {}), ties_survive: value } } } }),
+    });
+    load();
+  }
+
+  async function overrideWeek(entry: string, week: number, outcome: "survived" | "out") {
+    await fetch("/api/pick-override", {
+      method: "POST",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { type: "pick-override", attributes: { entry, week, outcome } } }),
+    });
+    setPickModal(null);
+    load();
+  }
+
+  async function clearOverrideWeek(entry: string, week: number) {
+    await fetch("/api/pick-override", {
+      method: "DELETE",
+      headers: { "content-type": "application/vnd.api+json" },
+      body: JSON.stringify({ data: { attributes: { entry, week } } }),
+    });
+    setPickModal(null);
+    load();
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -205,19 +258,44 @@ export default function DashboardClient() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {recs.map((r) => (
-          <div key={r.entry} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div
+            key={r.entry}
+            className={`rounded-xl border bg-white p-4 shadow-sm ${
+              r.eliminated ? "border-red-300 bg-red-50/40 opacity-80" : "border-slate-200"
+            }`}
+          >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">{r.entry}</h2>
-              <button
-                onClick={() => removeEntry(r)}
-                title="Delete entry"
-                className="text-slate-300 transition-colors hover:text-red-500"
-              >
-                ✕
-              </button>
+              <h2 className={`text-lg font-bold ${r.eliminated ? "text-red-700" : ""}`}>{r.entry}</h2>
+              <div className="flex items-center gap-2">
+                <label
+                  className="flex items-center gap-1 text-[11px] text-slate-500"
+                  title="A tie counts as surviving in this entry's league"
+                >
+                  <input
+                    type="checkbox"
+                    checked={r.settings?.ties_survive ?? true}
+                    onChange={(e) => setTiesSurvive(r, e.target.checked)}
+                    className="accent-emerald-600"
+                  />
+                  tie=safe
+                </label>
+                <button
+                  onClick={() => removeEntry(r)}
+                  title="Delete entry"
+                  className="text-slate-300 transition-colors hover:text-red-500"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            {r.currentPick ? (
+            {r.eliminated ? (
+              <div className="mt-2">
+                <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                  Eliminated{r.eliminatedWeek ? ` — Week ${r.eliminatedWeek}` : ""}
+                </span>
+              </div>
+            ) : r.currentPick ? (
               <div className="mt-2">
                 <div className="flex items-center gap-3">
                   <TeamLogo abbr={r.currentPick} size={40} />
@@ -262,20 +340,24 @@ export default function DashboardClient() {
                   {weeks.map((w) => {
                     const team = r.picksByWeek?.[w];
                     const isCurrent = w === r.week;
+                    const rv = r.resultsByWeek?.[w];
                     return (
                       <button
                         key={w}
                         onClick={() => openPickModal(r, w)}
-                        title={`Pick ${r.entry}'s Week ${w} team`}
-                        className={`flex min-w-[44px] flex-col items-center rounded-lg border px-1 py-1 transition-colors hover:border-slate-400 hover:bg-slate-50 ${
-                          isCurrent ? "border-emerald-400 bg-emerald-50" : "border-slate-100"
-                        }`}
+                        title={rv?.statusDetail || `Pick ${r.entry}'s Week ${w} team`}
+                        className={`flex min-w-[44px] flex-col items-center rounded-lg border px-1 py-1 transition-colors hover:border-slate-400 hover:bg-slate-50 ${cellClasses(rv?.outcome, isCurrent)}`}
                       >
                         <span className="text-[10px] text-slate-400">W{w}</span>
                         {team ? (
                           <>
                             <TeamLogo abbr={team} size={20} />
                             <span className="text-[10px] font-semibold">{team}</span>
+                            {rv && rv.teamScore != null && rv.oppScore != null && (
+                              <span className="text-[9px] tabular-nums text-slate-500">
+                                {rv.teamScore}–{rv.oppScore}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <span className="py-1 text-slate-300">+</span>
@@ -319,6 +401,28 @@ export default function DashboardClient() {
                 </button>
               </div>
             )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs">
+              <span className="text-slate-500">Result override:</span>
+              <button
+                onClick={() => overrideWeek(pickModal.entry, pickModal.week, "survived")}
+                className="rounded bg-emerald-100 px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-200"
+              >
+                Mark survived
+              </button>
+              <button
+                onClick={() => overrideWeek(pickModal.entry, pickModal.week, "out")}
+                className="rounded bg-red-100 px-2 py-1 font-medium text-red-700 hover:bg-red-200"
+              >
+                Mark out
+              </button>
+              <button
+                onClick={() => clearOverrideWeek(pickModal.entry, pickModal.week)}
+                className="rounded px-2 py-1 text-slate-500 underline"
+              >
+                Clear
+              </button>
+            </div>
 
             <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">
               Available teams · safest first
