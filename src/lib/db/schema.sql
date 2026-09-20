@@ -25,9 +25,14 @@ ALTER TABLE entries ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}
 CREATE TABLE IF NOT EXISTS pick_overrides (
   entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
   week     INTEGER NOT NULL,
-  outcome  TEXT NOT NULL CHECK (outcome IN ('survived', 'out')),
+  outcome  TEXT NOT NULL CHECK (outcome IN ('survived', 'out', 'revived')),
   PRIMARY KEY (entry_id, week)
 );
+
+-- Widen the outcome check on tables created before 'revived' existed.
+ALTER TABLE pick_overrides DROP CONSTRAINT IF EXISTS pick_overrides_outcome_check;
+ALTER TABLE pick_overrides ADD CONSTRAINT pick_overrides_outcome_check
+  CHECK (outcome IN ('survived', 'out', 'revived'));
 
 INSERT INTO entries (id, name) VALUES
   ('jon','Jon'), ('genevieve','Genevieve'), ('elliot','Elliot')

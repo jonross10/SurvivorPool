@@ -89,4 +89,14 @@ describe("deriveEntryStatus", () => {
     expect(deriveEntryStatus({ 1: "BUF" }, tie, {}, false).eliminated).toBe(true);
     expect(deriveEntryStatus({ 1: "BUF" }, tie, {}, true).eliminated).toBe(false);
   });
+  it("a 'revived' override keeps the loss visible but does not eliminate", () => {
+    const s = deriveEntryStatus({ 2: "KC" }, results, { 2: "revived" }, true);
+    expect(s.byWeek[2]).toBe("lost"); // loss stays on the record
+    expect(s.eliminated).toBe(false); // but they are not out
+  });
+  it("a revived entry can still be eliminated by a later loss", () => {
+    const s = deriveEntryStatus({ 2: "KC", 3: "SF" }, results, { 2: "revived" }, true);
+    expect(s.eliminated).toBe(true);
+    expect(s.eliminatedWeek).toBe(3);
+  });
 });
