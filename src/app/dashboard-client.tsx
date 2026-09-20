@@ -4,6 +4,7 @@ import type { GameView, Recommendation, WinProb } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
+import GameCard from "@/components/GameCard";
 import { useRanks } from "@/components/use-ranks";
 
 type Rec = Recommendation & {
@@ -27,21 +28,6 @@ function cellClasses(outcome: string | undefined, isCurrent: boolean, eliminated
   // Not yet played: highlight the current week (unless the entry is out) in blue.
   if (isCurrent && !eliminated) return "border-blue-300 bg-blue-50";
   return "border-slate-100";
-}
-
-function fmtSpread(s: number | null): string {
-  if (s === null) return "";
-  if (s === 0) return "PK";
-  return s > 0 ? `+${s}` : `${s}`;
-}
-function fmtOdds(o: number | null): string {
-  if (o === null) return "";
-  return o > 0 ? `+${o}` : `${o}`;
-}
-function fmtKick(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short", hour: "numeric", minute: "2-digit",
-  });
 }
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
@@ -226,22 +212,10 @@ export default function DashboardClient() {
     await overrideWeek(r.entry, r.eliminatedWeek, "revived");
   }
 
-  // Current-week matchup info (win %, spread, moneyline, kickoff, opponent) for a team.
-  function lineFor(team: string | null | undefined): {
-    prob: number; spread: number | null; odds: number | null; kickoff: string; opponent: string; home: boolean;
-  } | null {
-    if (!team) return null;
-    const g = weekGames.find((x) => x.home === team || x.away === team);
-    if (!g) return null;
-    const home = g.home === team;
-    return {
-      prob: home ? g.homeProb : g.awayProb,
-      spread: home ? g.homeSpread : (g.homeSpread === null ? null : -g.homeSpread),
-      odds: home ? g.homeOdds : g.awayOdds,
-      kickoff: g.kickoff,
-      opponent: home ? g.away : g.home,
-      home,
-    };
+  // The current-week GameView for a team (for the matchup mini-card), if any.
+  function gameFor(team: string | null | undefined): GameView | undefined {
+    if (!team) return undefined;
+    return weekGames.find((x) => x.home === team || x.away === team);
   }
 
   async function clearOverrideWeek(entry: string, week: number) {
@@ -383,18 +357,11 @@ export default function DashboardClient() {
                 </div>
                 <p className="mt-2 text-sm text-slate-500">Locked in for Week {r.week}.</p>
                 {(() => {
-                  const ln = lineFor(r.currentPick);
-                  return ln ? (
-                    <>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {ln.home ? "vs" : "@"} {ln.opponent} · {fmtKick(ln.kickoff)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        <span className="font-semibold text-slate-700">{Math.round(ln.prob * 100)}%</span> to win
-                        {ln.spread !== null && ` · ${fmtSpread(ln.spread)}`}
-                        {ln.odds !== null && ` · ${fmtOdds(ln.odds)}`}
-                      </p>
-                    </>
+                  const g = gameFor(r.currentPick);
+                  return g ? (
+                    <div className="mt-2">
+                      <GameCard game={g} result={g.result} highlightTeam={r.currentPick} ranks={ranks} />
+                    </div>
                   ) : null;
                 })()}
                 <button onClick={() => undo(r)} className="mt-3 text-sm text-slate-500 underline">
@@ -410,16 +377,11 @@ export default function DashboardClient() {
                   {r.pick && <WinProbPill prob={r.prob} />}
                 </div>
                 {(() => {
-                  const ln = lineFor(r.pick);
-                  return ln ? (
-                    <p className="mt-1 text-xs text-slate-400">
-                      {[
-                        `${ln.home ? "vs" : "@"} ${ln.opponent}`,
-                        fmtKick(ln.kickoff),
-                        ln.spread !== null ? fmtSpread(ln.spread) : null,
-                        ln.odds !== null ? fmtOdds(ln.odds) : null,
-                      ].filter(Boolean).join(" · ")}
-                    </p>
+                  const g = gameFor(r.pick);
+                  return g ? (
+                    <div className="mt-2">
+                      <GameCard game={g} result={g.result} highlightTeam={r.pick} ranks={ranks} />
+                    </div>
                   ) : null;
                 })()}
                 <p className="mt-2 text-sm text-slate-600">{r.reasoning}</p>
