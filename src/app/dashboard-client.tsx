@@ -38,6 +38,11 @@ function fmtOdds(o: number | null): string {
   if (o === null) return "";
   return o > 0 ? `+${o}` : `${o}`;
 }
+function fmtKick(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: "short", hour: "numeric", minute: "2-digit",
+  });
+}
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
 
@@ -221,8 +226,10 @@ export default function DashboardClient() {
     await overrideWeek(r.entry, r.eliminatedWeek, "revived");
   }
 
-  // Current-week odds line (win %, spread, moneyline) for a team, from the matchups feed.
-  function lineFor(team: string | null | undefined): { prob: number; spread: number | null; odds: number | null } | null {
+  // Current-week matchup info (win %, spread, moneyline, kickoff, opponent) for a team.
+  function lineFor(team: string | null | undefined): {
+    prob: number; spread: number | null; odds: number | null; kickoff: string; opponent: string; home: boolean;
+  } | null {
     if (!team) return null;
     const g = weekGames.find((x) => x.home === team || x.away === team);
     if (!g) return null;
@@ -231,6 +238,9 @@ export default function DashboardClient() {
       prob: home ? g.homeProb : g.awayProb,
       spread: home ? g.homeSpread : (g.homeSpread === null ? null : -g.homeSpread),
       odds: home ? g.homeOdds : g.awayOdds,
+      kickoff: g.kickoff,
+      opponent: home ? g.away : g.home,
+      home,
     };
   }
 
@@ -375,11 +385,16 @@ export default function DashboardClient() {
                 {(() => {
                   const ln = lineFor(r.currentPick);
                   return ln ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      <span className="font-semibold text-slate-700">{Math.round(ln.prob * 100)}%</span> to win
-                      {ln.spread !== null && ` · ${fmtSpread(ln.spread)}`}
-                      {ln.odds !== null && ` · ${fmtOdds(ln.odds)}`}
-                    </p>
+                    <>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {ln.home ? "vs" : "@"} {ln.opponent} · {fmtKick(ln.kickoff)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700">{Math.round(ln.prob * 100)}%</span> to win
+                        {ln.spread !== null && ` · ${fmtSpread(ln.spread)}`}
+                        {ln.odds !== null && ` · ${fmtOdds(ln.odds)}`}
+                      </p>
+                    </>
                   ) : null;
                 })()}
                 <button onClick={() => undo(r)} className="mt-3 text-sm text-slate-500 underline">
@@ -396,10 +411,14 @@ export default function DashboardClient() {
                 </div>
                 {(() => {
                   const ln = lineFor(r.pick);
-                  return ln && (ln.spread !== null || ln.odds !== null) ? (
+                  return ln ? (
                     <p className="mt-1 text-xs text-slate-400">
-                      {[ln.spread !== null ? fmtSpread(ln.spread) : null, ln.odds !== null ? fmtOdds(ln.odds) : null]
-                        .filter(Boolean).join(" · ")}
+                      {[
+                        `${ln.home ? "vs" : "@"} ${ln.opponent}`,
+                        fmtKick(ln.kickoff),
+                        ln.spread !== null ? fmtSpread(ln.spread) : null,
+                        ln.odds !== null ? fmtOdds(ln.odds) : null,
+                      ].filter(Boolean).join(" · ")}
                     </p>
                   ) : null;
                 })()}
