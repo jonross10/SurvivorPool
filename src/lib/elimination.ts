@@ -64,7 +64,7 @@ export interface EntryStatus {
 export function deriveEntryStatus(
   picksByWeek: Record<number, TeamAbbr>,
   results: GameResult[],
-  overrides: Record<number, "survived" | "out">,
+  overrides: Record<number, "survived" | "out" | "revived">,
   tiesSurvive: boolean,
 ): EntryStatus {
   const byWeek: Record<number, PickOutcome> = {};
@@ -77,12 +77,15 @@ export function deriveEntryStatus(
     const result = results.find((r) => r.week === w && (r.home === pick || r.away === pick));
     const ov = overrides[w];
     let outcome: PickOutcome;
+    // "revived" = the entry lost but bought back in: keep the loss visible in the
+    // timeline, but don't let it eliminate them.
     if (ov === "out") outcome = "lost";
+    else if (ov === "revived") outcome = "lost";
     else if (ov === "survived") outcome = "won";
     else outcome = outcomeForWeek(pick, result, tiesSurvive);
 
     byWeek[w] = outcome;
-    if (!eliminated && outcome === "lost") {
+    if (!eliminated && outcome === "lost" && ov !== "revived") {
       eliminated = true;
       eliminatedWeek = w;
     }

@@ -17,9 +17,9 @@ function isValidWeek(week: unknown): week is number {
 export async function POST(req: Request) {
   const { entry, week, outcome } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
-  if (!entryId || !isValidWeek(week) || (outcome !== "survived" && outcome !== "out")) {
+  if (!entryId || !isValidWeek(week) || (outcome !== "survived" && outcome !== "out" && outcome !== "revived")) {
     return jsonApi(
-      errorDocument([{ status: "400", title: "Invalid override", detail: "entry, a positive integer week, and outcome (survived|out) are required" }]),
+      errorDocument([{ status: "400", title: "Invalid override", detail: "entry, a positive integer week, and outcome (survived|out|revived) are required" }]),
       400,
     );
   }

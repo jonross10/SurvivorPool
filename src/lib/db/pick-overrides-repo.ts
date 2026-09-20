@@ -1,6 +1,6 @@
 import { sql } from "./client";
 
-export type OverrideOutcome = "survived" | "out";
+export type OverrideOutcome = "survived" | "out" | "revived";
 export type Overrides = Record<number, OverrideOutcome>;
 
 export async function getOverrides(entryId: string): Promise<Overrides> {

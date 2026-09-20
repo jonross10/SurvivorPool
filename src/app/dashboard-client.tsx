@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { Recommendation, WinProb } from "@/lib/types";
+import type { GameView, Recommendation, WinProb } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
@@ -19,11 +19,24 @@ type Rec = Recommendation & {
   }>;
 };
 
-function cellClasses(outcome: string | undefined, isCurrent: boolean): string {
+function cellClasses(outcome: string | undefined, isCurrent: boolean, eliminated: boolean): string {
+  // Green means a win — never "the current week".
   if (outcome === "won" || outcome === "tie") return "border-emerald-400 bg-emerald-50";
   if (outcome === "lost") return "border-red-400 bg-red-50";
   if (outcome === "live") return "border-amber-400 bg-amber-50";
-  return isCurrent ? "border-emerald-400 bg-emerald-50" : "border-slate-100";
+  // Not yet played: highlight the current week (unless the entry is out) in blue.
+  if (isCurrent && !eliminated) return "border-blue-300 bg-blue-50";
+  return "border-slate-100";
+}
+
+function fmtSpread(s: number | null): string {
+  if (s === null) return "";
+  if (s === 0) return "PK";
+  return s > 0 ? `+${s}` : `${s}`;
+}
+function fmtOdds(o: number | null): string {
+  if (o === null) return "";
+  return o > 0 ? `+${o}` : `${o}`;
 }
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
@@ -39,6 +52,7 @@ function timeAgo(iso: string | null): string {
 export default function DashboardClient() {
   const [recs, setRecs] = useState<Rec[]>([]);
   const [weeks, setWeeks] = useState<number[]>([]);
+  const [weekGames, setWeekGames] = useState<GameView[]>([]);
   const [floor, setFloor] = useState(0.6);
   const [loading, setLoading] = useState(true);
   const [freshness, setFreshness] = useState<Freshness>({ fetchedAt: null, canRefreshNow: true, remainingMs: 0 });
@@ -87,10 +101,12 @@ export default function DashboardClient() {
 
   async function load() {
     setLoading(true);
-    const [recDoc, entriesDoc] = await Promise.all([
+    const [recDoc, entriesDoc, matchupsDoc] = await Promise.all([
       fetch(`/api/recommendations?safetyFloor=${floor}`).then((r) => r.json()),
       fetch(`/api/entries`).then((r) => r.json()),
+      fetch(`/api/matchups`).then((r) => r.json()),
     ]);
+    setWeekGames(unwrapMany<GameView>(matchupsDoc));
     const settingsByName: Record<string, { ties_survive?: boolean }> = Object.fromEntries(
       (entriesDoc.data ?? []).map((d: { attributes: { name: string; settings?: { ties_survive?: boolean } } }) =>
         [d.attributes.name, d.attributes.settings ?? {}]),
@@ -187,7 +203,7 @@ export default function DashboardClient() {
     load();
   }
 
-  async function overrideWeek(entry: string, week: number, outcome: "survived" | "out") {
+  async function overrideWeek(entry: string, week: number, outcome: "survived" | "out" | "revived") {
     await fetch("/api/pick-override", {
       method: "POST",
       headers: { "content-type": "application/vnd.api+json" },
@@ -195,6 +211,27 @@ export default function DashboardClient() {
     });
     setPickModal(null);
     load();
+  }
+
+  async function reviveEntry(r: Rec) {
+    if (!r.eliminatedWeek) return;
+    if (!window.confirm(
+      `Revive ${r.entry}? Their Week ${r.eliminatedWeek} loss stays on the record, but they'll be marked back in (buy-back).`,
+    )) return;
+    await overrideWeek(r.entry, r.eliminatedWeek, "revived");
+  }
+
+  // Current-week odds line (win %, spread, moneyline) for a team, from the matchups feed.
+  function lineFor(team: string | null | undefined): { prob: number; spread: number | null; odds: number | null } | null {
+    if (!team) return null;
+    const g = weekGames.find((x) => x.home === team || x.away === team);
+    if (!g) return null;
+    const home = g.home === team;
+    return {
+      prob: home ? g.homeProb : g.awayProb,
+      spread: home ? g.homeSpread : (g.homeSpread === null ? null : -g.homeSpread),
+      odds: home ? g.homeOdds : g.awayOdds,
+    };
   }
 
   async function clearOverrideWeek(entry: string, week: number) {
@@ -207,11 +244,16 @@ export default function DashboardClient() {
     load();
   }
 
+  const currentWk = recs[0]?.week ?? null;
+  const alive = recs.filter((r) => !r.eliminated);
+  const pickedThisWeek = alive.filter((r) => r.currentPick);
+  const toPick = alive.length - pickedThisWeek.length;
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">
-          Survivor Pool <span className="text-slate-400">— Week {recs[0]?.week ?? "?"}</span>
+          Survivor Pool <span className="text-slate-400">— Week {currentWk ?? "?"}</span>
         </h1>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">Updated {timeAgo(freshness.fetchedAt)}</span>
@@ -243,6 +285,19 @@ export default function DashboardClient() {
           </button>
         </div>
       </div>
+
+      {recs.length > 0 && (
+        <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <strong className="text-slate-900">{alive.length}/{recs.length}</strong> entries still alive
+          {alive.length > 0 && currentWk !== null && (
+            <>
+              {" · "}
+              <strong className="text-slate-900">{pickedThisWeek.length}/{alive.length}</strong> picked Week {currentWk}
+              {toPick > 0 && <span className="text-amber-600"> · {toPick} still to pick</span>}
+            </>
+          )}
+        </div>
+      )}
 
       <label
         className="mt-3 flex items-center gap-2 text-sm text-slate-500"
@@ -293,10 +348,19 @@ export default function DashboardClient() {
             </div>
 
             {r.eliminated ? (
-              <div className="mt-2">
+              <div className="mt-2 flex items-center gap-3">
                 <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
                   Eliminated{r.eliminatedWeek ? ` — Week ${r.eliminatedWeek}` : ""}
                 </span>
+                {r.eliminatedWeek && (
+                  <button
+                    onClick={() => reviveEntry(r)}
+                    title="Buy-back: keep the loss on record but mark them back in"
+                    className="text-xs font-medium text-emerald-700 underline"
+                  >
+                    Revive entry
+                  </button>
+                )}
               </div>
             ) : r.currentPick ? (
               <div className="mt-2">
@@ -308,6 +372,16 @@ export default function DashboardClient() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-slate-500">Locked in for Week {r.week}.</p>
+                {(() => {
+                  const ln = lineFor(r.currentPick);
+                  return ln ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      <span className="font-semibold text-slate-700">{Math.round(ln.prob * 100)}%</span> to win
+                      {ln.spread !== null && ` · ${fmtSpread(ln.spread)}`}
+                      {ln.odds !== null && ` · ${fmtOdds(ln.odds)}`}
+                    </p>
+                  ) : null;
+                })()}
                 <button onClick={() => undo(r)} className="mt-3 text-sm text-slate-500 underline">
                   Undo pick
                 </button>
@@ -320,6 +394,15 @@ export default function DashboardClient() {
                   <span className="text-2xl font-bold">{r.pick ?? "—"}</span>
                   {r.pick && <WinProbPill prob={r.prob} />}
                 </div>
+                {(() => {
+                  const ln = lineFor(r.pick);
+                  return ln && (ln.spread !== null || ln.odds !== null) ? (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {[ln.spread !== null ? fmtSpread(ln.spread) : null, ln.odds !== null ? fmtOdds(ln.odds) : null]
+                        .filter(Boolean).join(" · ")}
+                    </p>
+                  ) : null;
+                })()}
                 <p className="mt-2 text-sm text-slate-600">{r.reasoning}</p>
                 {r.greedyAlt && r.greedyAlt.team !== r.pick && (
                   <p className="mt-1 text-xs text-slate-400">
@@ -349,14 +432,15 @@ export default function DashboardClient() {
                         key={w}
                         onClick={() => openPickModal(r, w)}
                         title={rv?.statusDetail || `Pick ${r.entry}'s Week ${w} team`}
-                        className={`flex min-w-[44px] flex-col items-center rounded-lg border px-1 py-1 transition-colors hover:border-slate-400 hover:bg-slate-50 ${cellClasses(rv?.outcome, isCurrent)}`}
+                        className={`flex w-[46px] shrink-0 flex-col items-center rounded-lg border px-1 py-1 transition-colors hover:border-slate-400 hover:bg-slate-50 ${cellClasses(rv?.outcome, isCurrent, !!r.eliminated)}`}
                       >
                         <span className="text-[10px] text-slate-400">W{w}</span>
                         {team ? (
                           <>
                             <TeamLogo abbr={team} size={20} />
                             <span className="text-[10px] font-semibold">{team}</span>
-                            {rv && rv.teamScore != null && rv.oppScore != null && (
+                            {/* Only show a score once the game has actually played (not 0–0 pre-kickoff). */}
+                            {rv && rv.outcome !== "pending" && rv.teamScore != null && rv.oppScore != null && (
                               <span className="text-[9px] tabular-nums text-slate-500">
                                 {rv.teamScore}–{rv.oppScore}
                               </span>
