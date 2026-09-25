@@ -42,8 +42,8 @@ export default function DashboardClient() {
       fetch(`/api/matchups`).then((r) => r.json()),
     ]);
     setWeekGames(unwrapMany<GameView>(matchupsDoc));
-    const settingsByName: Record<string, { ties_survive?: boolean }> = Object.fromEntries(
-      (entriesDoc.data ?? []).map((d: { attributes: { name: string; settings?: { ties_survive?: boolean } } }) =>
+    const settingsByName: Record<string, { ties_survive?: boolean; pool?: string }> = Object.fromEntries(
+      (entriesDoc.data ?? []).map((d: { attributes: { name: string; settings?: { ties_survive?: boolean; pool?: string } } }) =>
         [d.attributes.name, d.attributes.settings ?? {}]),
     );
     const recsWithId: Rec[] = (recDoc.data ?? []).map(
@@ -137,6 +137,11 @@ export default function DashboardClient() {
     load();
   }
 
+  async function setPool(r: Rec, pool: string) {
+    await updateEntrySettings(r.entryId ?? "", { ...(r.settings ?? {}), pool });
+    load();
+  }
+
   async function reviveEntry(r: Rec) {
     if (!r.eliminatedWeek) return;
     if (!window.confirm(
@@ -224,6 +229,7 @@ export default function DashboardClient() {
             onConfirm={confirm}
             onRevive={reviveEntry}
             onToggleTies={setTiesSurvive}
+            onSetPool={setPool}
             onRemove={removeEntry}
           />
         ))}

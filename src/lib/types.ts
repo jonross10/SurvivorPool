@@ -77,6 +77,7 @@ export interface GameView {
 
 export interface EntrySettings {
   ties_survive?: boolean; // absent → treated as true
+  pool?: string;          // coordination group; absent → "main"
 }
 
 export interface Entry {

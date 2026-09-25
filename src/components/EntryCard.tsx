@@ -9,7 +9,7 @@ export type Rec = Recommendation & {
   picksByWeek?: Record<number, string>;
   eliminated?: boolean;
   eliminatedWeek?: number | null;
-  settings?: { ties_survive?: boolean };
+  settings?: { ties_survive?: boolean; pool?: string };
   resultsByWeek?: Record<number, {
     week: number; team: string; outcome: "won" | "lost" | "tie" | "pending" | "live";
     teamScore: number | null; oppScore: number | null; opponent: string | null; statusDetail: string;
@@ -27,7 +27,7 @@ function cellClasses(outcome: string | undefined, isCurrent: boolean, eliminated
 
 export default function EntryCard({
   rec: r, weeks, ranks, weekGames,
-  onOpenWeek, onUndo, onConfirm, onRevive, onToggleTies, onRemove,
+  onOpenWeek, onUndo, onConfirm, onRevive, onToggleTies, onSetPool, onRemove,
 }: {
   rec: Rec;
   weeks: number[];
@@ -38,6 +38,7 @@ export default function EntryCard({
   onConfirm: (rec: Rec) => void;
   onRevive: (rec: Rec) => void;
   onToggleTies: (rec: Rec, value: boolean) => void;
+  onSetPool: (rec: Rec, pool: string) => void;
   onRemove: (rec: Rec) => void;
 }) {
   const gameFor = (team: string | null | undefined): GameView | undefined =>
@@ -52,6 +53,15 @@ export default function EntryCard({
       <div className="flex items-center justify-between">
         <h2 className={`text-lg font-bold ${r.eliminated ? "text-red-700" : ""}`}>{r.entry}</h2>
         <div className="flex items-center gap-2">
+          <input
+            defaultValue={r.settings?.pool ?? "main"}
+            onBlur={(e) => {
+              const v = e.target.value.trim() || "main";
+              if (v !== (r.settings?.pool ?? "main")) onSetPool(r, v);
+            }}
+            title="Pool — entries in the same pool are planned together"
+            className="w-16 rounded border border-slate-200 px-1 py-0.5 text-[11px] text-slate-600"
+          />
           <label
             className="flex items-center gap-1 text-[11px] text-slate-500"
             title="A tie counts as surviving in this entry's league"

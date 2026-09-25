@@ -24,6 +24,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       400,
     );
   }
+  if ("pool" in settings && (typeof settings.pool !== "string" || settings.pool.trim() === "")) {
+    return jsonApi(
+      errorDocument([{ status: "400", title: "Invalid settings", detail: "pool must be a non-empty string" }]),
+      400,
+    );
+  }
   await updateSettings(id, settings as EntrySettings);
   return jsonApi(metaDocument({ ok: true }));
 }
