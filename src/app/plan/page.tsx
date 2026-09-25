@@ -9,6 +9,8 @@ type Rv = { outcome: "won" | "lost" | "tie" | "pending" | "live"; teamScore: num
 interface Rec {
   entry: string;
   eliminated?: boolean;
+  currentPick?: string | null;
+  currentPickProb?: number | null;
   picksByWeek?: Record<number, string>;
   resultsByWeek?: Record<number, Rv>;
   projectedPath?: { week: number; team: string; prob: number }[];
@@ -24,6 +26,7 @@ function cellClass(outcome: string | undefined, projected: boolean): string {
 export default function PlanPage() {
   const [recs, setRecs] = useState<Rec[]>([]);
   const [weeks, setWeeks] = useState<number[]>([]);
+  const [currentWk, setCurrentWk] = useState<number | null>(null);
   const [survival, setSurvival] = useState<{ week: number; prob: number }[]>([]);
   const ranks = useRanks();
 
@@ -32,6 +35,7 @@ export default function PlanPage() {
     const list: Rec[] = (doc.data ?? []).map((d: { attributes: Rec }) => d.attributes);
     setRecs(list);
     setWeeks(doc.meta?.weeks ?? []);
+    setCurrentWk(doc.meta?.currentWeek ?? null);
     // Portfolio survival over the next up-to-6 projected weeks (alive entries only).
     const alive = list.filter((r) => !r.eliminated);
     const plans = alive.map((r) => ({ entry: r.entry, path: r.projectedPath ?? [] }));
@@ -57,14 +61,14 @@ export default function PlanPage() {
     <main className="mx-auto max-w-none px-4 py-6">
       <h1 className="text-2xl font-bold tracking-tight">Projected Picks</h1>
       {survival.length > 0 && (
-        <p className="mt-1 text-sm text-slate-500">
-          Chance at least one entry is still alive through the end of:{" "}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Chance ≥1 entry survives through:</span>
           {survival.map((s) => (
-            <span key={s.week} className="mr-3">
-              <strong className="text-slate-800">Week {s.week}</strong> — {Math.round(s.prob * 100)}%
+            <span key={s.week} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">
+              Wk {s.week} <strong className="text-slate-900">{Math.round(s.prob * 100)}%</strong>
             </span>
           ))}
-        </p>
+        </div>
       )}
 
       <div className="mt-4 overflow-x-auto">
@@ -99,7 +103,10 @@ export default function PlanPage() {
                           <TeamLogo abbr={c.team} size={18} />
                           <span className="text-[10px] font-semibold">{c.team}</span>
                           {c.score ? <span className="text-[9px] tabular-nums text-slate-500">{c.score}</span>
-                            : proj ? <span className="text-[9px] text-slate-400">{Math.round(proj.prob * 100)}%</span> : null}
+                            : proj ? <span className="text-[9px] text-slate-400">{Math.round(proj.prob * 100)}%</span>
+                            : (w === currentWk && r.currentPickProb != null)
+                              ? <span className="text-[9px] text-slate-400">{Math.round(r.currentPickProb * 100)}%</span>
+                              : null}
                         </div>
                       ) : (
                         <span className="text-slate-300">+</span>

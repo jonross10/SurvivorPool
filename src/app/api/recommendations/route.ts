@@ -1,5 +1,6 @@
 import { getCache } from "@/lib/db/cache-repo";
 import { buildRecommendations } from "@/lib/recommendations";
+import { buildGameViews } from "@/lib/game-views";
 import { nameToId } from "@/lib/entries-util";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
@@ -35,12 +36,19 @@ export async function GET(req: Request) {
   const recs = buildRecommendations(schedule, strengths, odds, entryContexts, new Date(), safetyFloor);
   const week = recs[0]?.week ?? null;
   const weeks = weeksOf(schedule);
+  // Win prob for a team in the current week (used to show the locked pick's odds).
+  const curViews = week !== null ? buildGameViews(schedule, strengths, odds, week) : [];
+  const curProb = (team: string): number | null => {
+    const g = curViews.find((x) => x.home === team || x.away === team);
+    return g ? (g.home === team ? g.homeProb : g.awayProb) : null;
+  };
   const data = recs.map((r) => {
     const status = statusByName[r.entry];
     const eliminated = status?.eliminated ?? false;
     const picksByWeek = Object.fromEntries(
       Object.entries(picksByWeekByEntry[r.entry] ?? {}).map(([w, t]) => [Number(w), t]),
     );
+    const currentPick = week !== null ? (picksByWeekByEntry[r.entry]?.[week] ?? null) : null;
     return resource("recommendation", idByName[r.entry] ?? r.entry, {
       ...r,
       // Eliminated entries get no suggested pick.
@@ -48,7 +56,9 @@ export async function GET(req: Request) {
       eliminated,
       eliminatedWeek: status?.eliminatedWeek ?? null,
       // The pick already recorded for the current week, or null if undecided.
-      currentPick: week !== null ? (picksByWeekByEntry[r.entry]?.[week] ?? null) : null,
+      currentPick,
+      // Win prob of the current-week locked pick (for display when no score yet).
+      currentPickProb: currentPick ? curProb(currentPick) : null,
       // The entry's full pick history (week → team), for the season timeline.
       picksByWeek: picksByWeekByEntry[r.entry] ?? {},
       // Per-week score/status for every pick this entry has made.
