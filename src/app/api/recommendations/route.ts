@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     pool: (s.entry.settings as { pool?: string }).pool ?? "main",
     used: new Set(Object.values(s.picksByWeek)),
     picksByWeek: s.picksByWeek,
+    eliminated: s.status.eliminated,
   }));
   const picksByWeekByEntry: Record<string, Record<number, string>> = Object.fromEntries(
     statuses.map((s) => [s.entry.name, s.picksByWeek]),
