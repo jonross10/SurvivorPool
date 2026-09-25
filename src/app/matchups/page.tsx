@@ -1,24 +1,16 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
-import type { GameView, GameResult, Recommendation } from "@/lib/types";
+import { fetchAliveEntryNames, recordPick, removePick, errorDetail } from "@/lib/api-client";
+import type { GameView, Recommendation } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
-import WinProbPill from "@/components/WinProbPill";
+import GameCard from "@/components/GameCard";
 import { useRanks } from "@/components/use-ranks";
 
 interface EntryState { name: string; usedTeams: string[]; picksByWeek: Record<number, string> }
 
 function fmtDay(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
-}
-function fmtOdds(o: number | null): string {
-  if (o === null) return "—";
-  return o > 0 ? `+${o}` : `${o}`;
-}
-function fmtSpread(s: number | null): string {
-  if (s === null) return "";
-  if (s === 0) return "PK";
-  return s > 0 ? `+${s}` : `${s}`;
 }
 
 export default function MatchupsPage() {
@@ -31,10 +23,7 @@ export default function MatchupsPage() {
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const ranks = useRanks();
 
-  useEffect(() => {
-    fetch("/api/entries").then((r) => r.json())
-      .then((doc) => setEntryNames((doc.data ?? []).map((e: { attributes: { name: string } }) => e.attributes.name)));
-  }, []);
+  useEffect(() => { fetchAliveEntryNames().then(setEntryNames); }, []);
 
   useEffect(() => { if (!entry && entryNames.length) setEntry(entryNames[0]); }, [entryNames, entry]);
 
@@ -62,21 +51,13 @@ export default function MatchupsPage() {
 
   async function pick(team: string) {
     if (week === null || used.has(team)) return;
-    const res = await fetch("/api/pick", {
-      method: "POST",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "pick", attributes: { entry, week, team, winProb: 0 } } }),
-    });
-    if (!res.ok) alert((await res.json()).errors?.[0]?.detail ?? "Pick failed");
+    const res = await recordPick(entry, week, team, 0);
+    if (!res.ok) alert(await errorDetail(res, "Pick failed"));
     await loadState();
   }
   async function undo() {
     if (week === null) return;
-    await fetch("/api/pick", {
-      method: "DELETE",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "pick", attributes: { entry, week } } }),
-    });
+    await removePick(entry, week);
     await loadState();
   }
 
@@ -89,72 +70,6 @@ export default function MatchupsPage() {
     const d = fmtDay(g.kickoff);
     if (!byDay.has(d)) byDay.set(d, []);
     byDay.get(d)!.push(g);
-  }
-
-  function teamButton(
-    team: string, prob: number, odds: number | null, spread: number | null,
-    source: string, result: GameResult | null,
-  ) {
-    const isUsed = used.has(team);
-    const isPick = weekPick === team;
-    const isSuggested = suggested === team;
-    const completed = !!result?.completed;
-    const live = !!result?.inProgress && !completed;
-    const teamScore = result ? (result.home === team ? result.homeScore : result.awayScore) : null;
-    const isWinner = completed && result!.winner === team;
-    const isLoser = completed && result!.winner !== null && result!.winner !== team;
-
-    const stateClass = isUsed
-      ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-      : isWinner
-      ? "border-emerald-500 bg-emerald-50"
-      : isLoser
-      ? "border-slate-200 bg-white opacity-60"
-      : live
-      ? "border-amber-300 bg-amber-50"
-      : isPick
-      ? "border-emerald-500 bg-emerald-50"
-      : isSuggested
-      ? "border-dashed border-blue-400 hover:bg-slate-50"
-      : "border-slate-200 hover:bg-slate-50";
-    return (
-      <button
-        onClick={() => pick(team)}
-        disabled={isUsed}
-        className={`mt-2 flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${stateClass}`}
-      >
-        <span className="flex items-center gap-2">
-          <TeamLogo abbr={team} size={22} />
-          <span className={`font-semibold ${isWinner ? "text-emerald-800" : ""}`}>{team}</span>
-          {ranks[team] !== undefined && (
-            <span className="text-[10px] font-medium text-slate-400" title="Power ranking">#{ranks[team]}</span>
-          )}
-          {isPick && <span className="text-emerald-600">✓</span>}
-          {isSuggested && !isPick && !completed && !live && <span className="text-blue-500">★</span>}
-        </span>
-        {completed || live ? (
-          <span
-            className={`text-lg font-bold tabular-nums ${
-              isWinner ? "text-emerald-700" : live ? "text-amber-700" : isLoser ? "text-slate-400" : "text-slate-600"
-            }`}
-          >
-            {teamScore ?? "—"}
-          </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            <WinProbPill prob={prob} />
-            {source === "odds" ? (
-              <span className="w-16 text-right text-xs text-slate-500">
-                {spread !== null && <span className="font-medium">{fmtSpread(spread)}</span>}{" "}
-                <span className="text-slate-400">{fmtOdds(odds)}</span>
-              </span>
-            ) : (
-              <span className="w-16 text-right text-xs text-slate-400">proj</span>
-            )}
-          </span>
-        )}
-      </button>
-    );
   }
 
   const tab = (active: boolean) =>
@@ -190,18 +105,16 @@ export default function MatchupsPage() {
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{day}</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {gs.map((g) => (
-              <div key={`${g.away}@${g.home}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">{g.away} @ {g.home}</span>
-                  {g.result?.completed ? (
-                    <span className="font-medium text-slate-500">Final</span>
-                  ) : g.result?.inProgress ? (
-                    <span className="font-medium text-amber-600">LIVE · {g.result.statusDetail}</span>
-                  ) : null}
-                </div>
-                {teamButton(g.away, g.awayProb, g.awayOdds, g.homeSpread === null ? null : -g.homeSpread, g.source, g.result ?? null)}
-                {teamButton(g.home, g.homeProb, g.homeOdds, g.homeSpread, g.source, g.result ?? null)}
-              </div>
+              <GameCard
+                key={`${g.away}@${g.home}`}
+                game={g}
+                result={g.result}
+                ranks={ranks}
+                onPick={pick}
+                usedTeams={used}
+                pickedTeam={weekPick}
+                suggestedTeam={suggested}
+              />
             ))}
           </div>
         </section>

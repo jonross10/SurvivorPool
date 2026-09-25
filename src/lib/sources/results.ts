@@ -1,12 +1,22 @@
 import { getCache, setCache } from "../db/cache-repo";
 import { fetchWeekResults } from "./espn-schedule";
-import type { GameResult } from "../types";
+import type { GameResult, TeamAbbr } from "../types";
 
 const KEY = "results";
 const LIVE_TTL_MS = 60 * 1000;
 
 function keyOf(r: GameResult): string {
   return `${r.week}|${r.home}|${r.away}`;
+}
+
+/** The cached result for a specific game, or null if none is recorded yet. */
+export function resultForGame(
+  results: GameResult[],
+  week: number,
+  home: TeamAbbr,
+  away: TeamAbbr,
+): GameResult | null {
+  return results.find((r) => r.week === week && r.home === home && r.away === away) ?? null;
 }
 
 /** Merge fresh results over prior, replacing games with the same (week, home, away). */

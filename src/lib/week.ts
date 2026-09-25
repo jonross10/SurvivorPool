@@ -11,9 +11,19 @@ export function currentSeason(now: Date): number {
   return now.getUTCMonth() >= 7 ? year : year - 1; // getUTCMonth: 0=Jan, 7=Aug
 }
 
+/** The season to operate on: an explicit NFL_SEASON override, else derived from the date. */
+export function resolveSeason(now: Date = new Date()): number {
+  return Number(process.env.NFL_SEASON) || currentSeason(now);
+}
+
+/** The distinct week numbers in a schedule, ascending. */
+export function weeksOf(schedule: Matchup[]): number[] {
+  return [...new Set(schedule.map((m) => m.week))].sort((a, b) => a - b);
+}
+
 /** The earliest week that still has a game kicking off at or after `now`. */
 export function currentWeek(schedule: Matchup[], now: Date): number {
-  const weeks = [...new Set(schedule.map((m) => m.week))].sort((a, b) => a - b);
+  const weeks = weeksOf(schedule);
   for (const w of weeks) {
     const lastKickoff = Math.max(
       ...schedule.filter((m) => m.week === w).map((m) => new Date(m.kickoff).getTime()),

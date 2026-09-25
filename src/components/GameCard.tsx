@@ -1,44 +1,56 @@
 import TeamLogo from "./TeamLogo";
 import WinProbPill from "./WinProbPill";
+import { fmtSpread, fmtOdds, fmtKick } from "@/lib/format";
 import type { GameView, GameResult } from "@/lib/types";
 
-function fmtSpread(s: number | null): string {
-  if (s === null) return "";
-  if (s === 0) return "PK";
-  return s > 0 ? `+${s}` : `${s}`;
-}
-function fmtOdds(o: number | null): string {
-  if (o === null) return "";
-  return o > 0 ? `+${o}` : `${o}`;
-}
-function fmtKick(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
-}
-
 /**
- * Compact, display-only matchup card: two team rows with win-prob pills and
- * spread/odds, switching to scores once a game is live or final. `highlightTeam`
- * tints the picked/suggested team's row. Mirrors the Matchups tab styling.
+ * One game rendered as two team rows: win-prob pills + spread/odds for upcoming
+ * games, live/final scores otherwise. Used display-only on the Dashboard
+ * (`highlightTeam`) and interactively on Matchups (`onPick` + pick state).
  */
 export default function GameCard({
-  game, result, highlightTeam, ranks = {},
+  game, result, ranks = {}, highlightTeam, onPick, usedTeams, pickedTeam, suggestedTeam,
 }: {
   game: GameView;
   result?: GameResult | null;
-  highlightTeam?: string | null;
   ranks?: Record<string, number>;
+  /** Display-only highlight for the picked/suggested team (non-interactive). */
+  highlightTeam?: string | null;
+  /** Interactive mode: clicking a team row picks it. */
+  onPick?: (team: string) => void;
+  usedTeams?: Set<string>;
+  pickedTeam?: string | null;
+  suggestedTeam?: string | null;
 }) {
   const completed = !!result?.completed;
   const live = !!result?.inProgress && !completed;
+  const interactive = !!onPick;
 
   function row(team: string, prob: number, odds: number | null, spread: number | null) {
-    const isPick = highlightTeam === team;
+    const isUsed = interactive && !!usedTeams?.has(team);
+    const isPick = interactive ? pickedTeam === team : highlightTeam === team;
+    const isSuggested = interactive && suggestedTeam === team;
     const teamScore = result ? (result.home === team ? result.homeScore : result.awayScore) : null;
     const isWinner = completed && result!.winner === team;
     const isLoser = completed && result!.winner !== null && result!.winner !== team;
-    const rowClass = isWinner || (isPick && !completed) ? "bg-emerald-50" : isLoser ? "opacity-60" : "";
-    return (
-      <div className={`flex items-center justify-between rounded-md px-2 py-1.5 ${rowClass}`}>
+
+    const stateClass = isUsed
+      ? "bg-slate-100 text-slate-400"
+      : isWinner
+      ? "bg-emerald-50"
+      : isLoser
+      ? "opacity-60"
+      : live
+      ? "bg-amber-50"
+      : isPick
+      ? "bg-emerald-50"
+      : isSuggested
+      ? "bg-blue-50"
+      : "";
+    const hover = interactive && !isUsed ? "cursor-pointer hover:bg-slate-50" : "";
+
+    const inner = (
+      <>
         <span className="flex items-center gap-2">
           <TeamLogo abbr={team} size={20} />
           <span className={`text-sm font-semibold ${isWinner ? "text-emerald-800" : ""}`}>{team}</span>
@@ -46,6 +58,7 @@ export default function GameCard({
             <span className="text-[10px] font-medium text-slate-400" title="Power ranking">#{ranks[team]}</span>
           )}
           {isPick && <span className="text-xs text-emerald-600">✓</span>}
+          {isSuggested && !isPick && !completed && !live && <span className="text-xs text-blue-500">★</span>}
         </span>
         {completed || live ? (
           <span
@@ -64,7 +77,16 @@ export default function GameCard({
             </span>
           </span>
         )}
-      </div>
+      </>
+    );
+
+    const cls = `flex items-center justify-between rounded-md px-2 py-1.5 text-left ${stateClass} ${hover}`;
+    return interactive ? (
+      <button key={team} onClick={() => !isUsed && onPick!(team)} disabled={isUsed} className={`w-full ${cls}`}>
+        {inner}
+      </button>
+    ) : (
+      <div key={team} className={cls}>{inner}</div>
     );
   }
 

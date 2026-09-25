@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { GameView, Recommendation, WinProb } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
+import { recordPick, removePick, setPickOverride, clearPickOverride, updateEntrySettings, createEntry, deleteEntry, errorDetail } from "@/lib/api-client";
 import TeamLogo from "@/components/TeamLogo";
 import WinProbPill from "@/components/WinProbPill";
 import GameCard from "@/components/GameCard";
@@ -63,29 +64,15 @@ export default function DashboardClient() {
 
   async function pickForWeek(entry: string, week: number, team: string, prob: number) {
     // Swap: if the week already has a different pick, remove it first (UNIQUE week).
-    if (pickModal?.current && pickModal.current !== team) {
-      await fetch("/api/pick", {
-        method: "DELETE",
-        headers: { "content-type": "application/vnd.api+json" },
-        body: JSON.stringify({ data: { type: "pick", attributes: { entry, week } } }),
-      });
-    }
-    const res = await fetch("/api/pick", {
-      method: "POST",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "pick", attributes: { entry, week, team, winProb: prob } } }),
-    });
-    if (!res.ok) alert((await res.json()).errors?.[0]?.detail ?? "Pick failed");
+    if (pickModal?.current && pickModal.current !== team) await removePick(entry, week);
+    const res = await recordPick(entry, week, team, prob);
+    if (!res.ok) alert(await errorDetail(res, "Pick failed"));
     setPickModal(null);
     load();
   }
 
   async function clearWeek(entry: string, week: number) {
-    await fetch("/api/pick", {
-      method: "DELETE",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "pick", attributes: { entry, week } } }),
-    });
+    await removePick(entry, week);
     setPickModal(null);
     load();
   }
@@ -140,14 +127,9 @@ export default function DashboardClient() {
   async function addEntry() {
     const name = newName.trim();
     if (!name) return;
-    const res = await fetch("/api/entries", {
-      method: "POST",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "entry", attributes: { name } } }),
-    });
+    const res = await createEntry(name);
     if (!res.ok) {
-      const doc = await res.json();
-      alert(doc.errors?.[0]?.detail ?? "Could not add entry");
+      alert(await errorDetail(res, "Could not add entry"));
       return;
     }
     setNewName("");
@@ -157,49 +139,29 @@ export default function DashboardClient() {
 
   async function removeEntry(r: Rec) {
     if (!window.confirm(`Delete ${r.entry} and all their picks?`)) return;
-    await fetch(`/api/entries/${r.entryId ?? ""}`, { method: "DELETE" });
+    await deleteEntry(r.entryId ?? "");
     load();
   }
 
   async function confirm(r: Rec) {
     if (!r.pick) return;
-    const res = await fetch("/api/pick", {
-      method: "POST",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({
-        data: { type: "pick", attributes: { entry: r.entry, week: r.week, team: r.pick, winProb: r.prob } },
-      }),
-    });
-    if (!res.ok) {
-      const doc = await res.json();
-      alert(doc.errors?.[0]?.detail ?? "Pick failed");
-    } else load();
+    const res = await recordPick(r.entry, r.week, r.pick, r.prob);
+    if (!res.ok) alert(await errorDetail(res, "Pick failed"));
+    else load();
   }
 
   async function undo(r: Rec) {
-    await fetch("/api/pick", {
-      method: "DELETE",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "pick", attributes: { entry: r.entry, week: r.week } } }),
-    });
+    await removePick(r.entry, r.week);
     load();
   }
 
   async function setTiesSurvive(r: Rec, value: boolean) {
-    await fetch(`/api/entries/${r.entryId ?? ""}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { attributes: { settings: { ...(r.settings ?? {}), ties_survive: value } } } }),
-    });
+    await updateEntrySettings(r.entryId ?? "", { ...(r.settings ?? {}), ties_survive: value });
     load();
   }
 
   async function overrideWeek(entry: string, week: number, outcome: "survived" | "out" | "revived") {
-    await fetch("/api/pick-override", {
-      method: "POST",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { type: "pick-override", attributes: { entry, week, outcome } } }),
-    });
+    await setPickOverride(entry, week, outcome);
     setPickModal(null);
     load();
   }
@@ -219,11 +181,7 @@ export default function DashboardClient() {
   }
 
   async function clearOverrideWeek(entry: string, week: number) {
-    await fetch("/api/pick-override", {
-      method: "DELETE",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({ data: { attributes: { entry, week } } }),
-    });
+    await clearPickOverride(entry, week);
     setPickModal(null);
     load();
   }

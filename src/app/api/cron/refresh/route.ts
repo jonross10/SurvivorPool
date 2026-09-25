@@ -1,6 +1,6 @@
 import { ingestAll } from "@/lib/sources/ingest";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
-import { currentSeason } from "@/lib/week";
+import { resolveSeason } from "@/lib/week";
 
 export async function GET(req: Request) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   }
   try {
     const result = await ingestAll(
-      Number(process.env.NFL_SEASON) || currentSeason(new Date()),
+      resolveSeason(),
       process.env.ODDS_API_KEY ?? "",
     );
     return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString(), ...result }));
