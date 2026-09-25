@@ -1,6 +1,9 @@
+"use client";
+import { useState } from "react";
 import TeamLogo from "./TeamLogo";
 import WinProbPill from "./WinProbPill";
 import GameCard from "./GameCard";
+import EntrySettingsModal from "./EntrySettingsModal";
 import type { GameView, Recommendation } from "@/lib/types";
 
 export type Rec = Recommendation & {
@@ -43,6 +46,7 @@ export default function EntryCard({
 }) {
   const gameFor = (team: string | null | undefined): GameView | undefined =>
     team ? weekGames.find((x) => x.home === team || x.away === team) : undefined;
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div
@@ -52,37 +56,28 @@ export default function EntryCard({
     >
       <div className="flex items-center justify-between">
         <h2 className={`text-lg font-bold ${r.eliminated ? "text-red-700" : ""}`}>{r.entry}</h2>
-        <div className="flex items-center gap-2">
-          <input
-            defaultValue={r.settings?.pool ?? "main"}
-            onBlur={(e) => {
-              const v = e.target.value.trim() || "main";
-              if (v !== (r.settings?.pool ?? "main")) onSetPool(r, v);
-            }}
-            title="Pool — entries in the same pool are planned together"
-            className="w-16 rounded border border-slate-200 px-1 py-0.5 text-[11px] text-slate-600"
-          />
-          <label
-            className="flex items-center gap-1 text-[11px] text-slate-500"
-            title="A tie counts as surviving in this entry's league"
-          >
-            <input
-              type="checkbox"
-              checked={r.settings?.ties_survive ?? true}
-              onChange={(e) => onToggleTies(r, e.target.checked)}
-              className="accent-emerald-600"
-            />
-            tie=safe
-          </label>
-          <button
-            onClick={() => onRemove(r)}
-            title="Delete entry"
-            className="text-slate-300 transition-colors hover:text-red-500"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="Entry settings"
+          className="text-slate-300 transition-colors hover:text-slate-600"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
       </div>
+      {settingsOpen && (
+        <EntrySettingsModal
+          entryName={r.entry}
+          pool={r.settings?.pool ?? "main"}
+          tiesSurvive={r.settings?.ties_survive ?? true}
+          onClose={() => setSettingsOpen(false)}
+          onSetPool={(v) => onSetPool(r, v)}
+          onToggleTies={(v) => onToggleTies(r, v)}
+          onDelete={() => { setSettingsOpen(false); onRemove(r); }}
+        />
+      )}
 
       {r.eliminated ? (
         <div className="mt-2 flex items-center gap-3">
