@@ -27,8 +27,9 @@ projection view** that maps out every entry's planned picks, updating each week.
 
 - Full Monte-Carlo / ILP season optimization (overkill for 3–4 entries).
 - A prediction/ML model — win probabilities still come from odds/FPI.
-- Cross-pool correctness: we assume the entries share one pool (that's what makes
-  diversification pay off). Noted as an explicit assumption.
+- **Opponent modeling** (predicting what rival entrants you don't control will pick,
+  for contrarian EV in large pools). The pool concept below is a prerequisite, but
+  modeling external opponents' picks is a separate future feature.
 
 ## Key Decisions
 
@@ -38,6 +39,17 @@ The engine maximizes portfolio survival (≥1 entry alive). Diversification is t
 lever: distinct teams across entries in a week make outcomes uncorrelated, so
 `P(all lose) = ∏(1 − pᵢ)` shrinks fast (four 75% picks on different games ⇒ ~99.6%
 that one survives, vs 75% if all ride the same team).
+
+### Pools: diversify only within a pool
+
+Each entry belongs to a **pool** (stored in the existing `entries.settings` JSONB as
+`settings.pool`, default `"main"`). The portfolio planner runs **per pool** — entries
+in the same pool are coordinated/diversified together; entries in different pools are
+planned independently of one another. Marking an entry as its own pool therefore makes
+its recommendations fully independent (per-entry optimal, no de-collision) — exactly the
+"separate pool" behavior. This also lays the groundwork for later opponent modeling
+(adding rival entries to a pool). No cross-pool assumption is needed anymore; the pool
+is the coordination boundary.
 
 ### Planner: per-entry season-optimal + cross-entry de-collision (A + B)
 
@@ -102,11 +114,12 @@ portfolio-aware, e.g. "diversified pick; SF held for Archie's Week 6").
 ### 2. Wire into `buildRecommendations` (`src/lib/recommendations.ts`)
 
 Build per-entry `winProbs` (via `buildWinProbs` with each entry's used set) and
-`lockedByWeek` (from picks), call `planPortfolio`, and map results to the existing
-`Recommendation` shape per entry: `pick` = plan's current-week team, `prob` = its win
-prob, `projectedPath` = the plan, `reasoning` = portfolio note. No change to the
-recommendations route or its consumers — `projectedPath` and `pick` just become
-portfolio-aware, so dashboard/grid/matchups update automatically.
+`lockedByWeek` (from picks). **Group entries by `settings.pool` (default `"main"`) and
+call `planPortfolio` once per pool**, so coordination/diversification happens only within
+a pool. Map results to the existing `Recommendation` shape per entry: `pick` = plan's
+current-week team, `prob` = its win prob, `projectedPath` = the plan, `reasoning` =
+portfolio note. No change to the recommendations route or its consumers — `projectedPath`
+and `pick` just become portfolio-aware, so dashboard/grid/matchups update automatically.
 
 ### 3. Portfolio survival helper (`src/lib/portfolio.ts`)
 
@@ -142,12 +155,29 @@ plan view reuses it. (DRY improvement that falls out of adding the second consum
 - **Portfolio survival line** at top: `survivalCurve` for a short horizon
   (e.g. next 4–6 weeks), e.g. "P(≥1 alive) · W4 96% · W6 89% · W8 80%".
 
+### 6. Pool editing (small UI)
+
+`settings.pool` is editable per entry via the existing `updateEntrySettings` path — a
+compact inline field on the `EntryCard` (next to the `tie=safe` toggle), defaulting to
+`"main"`. Entries default to the same pool, so behavior is unchanged until pools are set.
+
 ## Data Flow
 
-`/api/recommendations` → `buildRecommendations` → `planPortfolio` → each entry's
-`projectedPath` (portfolio-diversified, stud-saving). Dashboard/grid/matchups read the
-current-week `pick`; the plan view renders the full `projectedPath` matrix. Clicking a
-cell → PickModal → `/api/pick` → reload.
+`/api/recommendations` → `buildRecommendations` → group entries by pool → `planPortfolio`
+per pool → each entry's `projectedPath` (portfolio-diversified, stud-saving). Dashboard/
+grid/matchups read the current-week `pick`; the plan view renders the full `projectedPath`
+matrix. Clicking a cell → PickModal → `/api/pick` → reload.
+
+## Recompute Cadence
+
+Recommendations are **recomputed on every request** — `buildRecommendations` (and thus
+`planPortfolio`) runs live on each `/api/recommendations` call, reading the currently
+cached odds/FPI/schedule. Those inputs refresh ~daily via the cron (16:00 UTC) plus
+manual "Refresh stats" (hourly-throttled). So recs always reflect the latest data on
+each load, while the underlying data moves about once a day. Per-request planning is
+cheap for a handful of entries; if it ever becomes heavy (many entries/pools), the plan
+output can be cached and invalidated on refresh/pick — noted as a future escape hatch,
+not built now.
 
 ## Testing
 
@@ -162,13 +192,15 @@ cell → PickModal → `/api/pick` → reload.
 
 ## Assumptions & Risks
 
-- **Same-pool assumption**: diversification only helps if entries compete in one pool.
+- **Pools are the coordination boundary** (via `settings.pool`); `survivalCurve` and
+  diversification are computed per pool. Entries left in the default pool are treated as
+  competing together.
 - **Independence approximation** in `survivalCurve` (diversification keeps correlation low).
-- **Greedy de-collision** is a heuristic, not a global optimum; fine for 3–4 entries and
-  explainable. Full joint optimization is a possible future upgrade.
+- **Greedy de-collision** is a heuristic, not a global optimum; fine for a handful of
+  entries per pool and explainable. Full joint optimization is a possible future upgrade.
 
 ## Phasing
 
 Single plan; naturally sequenced: (1) `planPortfolio` + `survivalCurve` (pure + tests),
-(2) wire into `buildRecommendations`, (3) `usePickModal` hook + dashboard refactor,
-(4) `/plan` view + nav.
+(2) wire into `buildRecommendations` with per-pool grouping, (3) pool field on `EntryCard`,
+(4) `usePickModal` hook + dashboard refactor, (5) `/plan` view + nav.
