@@ -122,3 +122,19 @@ export function planPortfolio(entries: EntryPlanInput[]): EntryPlan[] {
   }
   return paths;
 }
+
+/** P(at least one entry still alive) at the end of each listed week (independence approximation). */
+export function survivalCurve(
+  plans: EntryPlan[],
+  throughWeeks: number[],
+): { week: number; prob: number }[] {
+  return throughWeeks.map((week) => {
+    const pAllOut = plans.reduce((acc, pl) => {
+      const survive = pl.path
+        .filter((p) => p.week <= week)
+        .reduce((prod, p) => prod * p.prob, 1);
+      return acc * (1 - survive);
+    }, 1);
+    return { week, prob: plans.length === 0 ? 0 : 1 - pAllOut };
+  });
+}

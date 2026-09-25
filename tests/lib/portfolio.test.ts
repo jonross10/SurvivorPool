@@ -68,3 +68,25 @@ describe("planPortfolio", () => {
     expect(plans.find((p) => p.entry === "Y")!.path[0].team).toBe("C");
   });
 });
+
+import { survivalCurve } from "@/lib/portfolio";
+
+describe("survivalCurve", () => {
+  it("P(>=1 alive) combines entries as 1 - product of each entry's failure prob", () => {
+    // Two entries, each 50% to win week 1.
+    const plans = [
+      { entry: "X", path: [{ week: 1, team: "A", prob: 0.5 }] },
+      { entry: "Y", path: [{ week: 1, team: "B", prob: 0.5 }] },
+    ];
+    const curve = survivalCurve(plans, [1]);
+    // each survives W1 with 0.5; P(>=1) = 1 - 0.5*0.5 = 0.75
+    expect(curve[0].week).toBe(1);
+    expect(curve[0].prob).toBeCloseTo(0.75, 6);
+  });
+
+  it("compounds across weeks for a single entry", () => {
+    const plans = [{ entry: "X", path: [{ week: 1, team: "A", prob: 0.8 }, { week: 2, team: "B", prob: 0.5 }] }];
+    const curve = survivalCurve(plans, [2]);
+    expect(curve[0].prob).toBeCloseTo(0.4, 6); // 0.8 * 0.5
+  });
+});
