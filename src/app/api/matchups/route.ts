@@ -1,7 +1,7 @@
 import { getCache } from "@/lib/db/cache-repo";
 import { buildGameViews } from "@/lib/game-views";
-import { getResultsFresh } from "@/lib/sources/results";
-import { currentWeek, currentSeason } from "@/lib/week";
+import { getResultsFresh, resultForGame } from "@/lib/sources/results";
+import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
 import { resource, document, jsonApi, getFilter } from "@/lib/jsonapi";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
@@ -14,12 +14,11 @@ export async function GET(req: Request) {
   const wkParam = getFilter(req, "week");
   const week = wkParam ? Number(wkParam) : cur;
 
-  const results = await getResultsFresh(cur, Number(process.env.NFL_SEASON) || currentSeason(new Date()));
+  const results = await getResultsFresh(cur, resolveSeason());
   const games = buildGameViews(schedule, strengths, odds, week);
-  const weeks = [...new Set(schedule.map((m) => m.week))].sort((a, b) => a - b);
-  const data = games.map((g) => {
-    const result = results.find((r) => r.week === g.week && r.home === g.home && r.away === g.away) ?? null;
-    return resource("game", `${g.week}:${g.away}@${g.home}`, { ...g, result });
-  });
+  const weeks = weeksOf(schedule);
+  const data = games.map((g) =>
+    resource("game", `${g.week}:${g.away}@${g.home}`, { ...g, result: resultForGame(results, g.week, g.home, g.away) }),
+  );
   return jsonApi(document(data, { currentWeek: cur, week, weeks }));
 }

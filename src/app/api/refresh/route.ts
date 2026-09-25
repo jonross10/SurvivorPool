@@ -2,7 +2,7 @@ import { ingestAll } from "@/lib/sources/ingest";
 import { getCache } from "@/lib/db/cache-repo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 import { cooldownRemainingMs } from "@/lib/refresh-cooldown";
-import { currentSeason } from "@/lib/week";
+import { resolveSeason } from "@/lib/week";
 
 /** When the data was last refreshed. Anchored on the schedule cache, which is
  *  always written on a successful refresh (odds are best-effort and may not be). */
@@ -32,7 +32,7 @@ export async function POST() {
   }
   try {
     const result = await ingestAll(
-      Number(process.env.NFL_SEASON) || currentSeason(new Date()),
+      resolveSeason(),
       process.env.ODDS_API_KEY ?? "",
     );
     return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString(), ...result }));

@@ -3,14 +3,14 @@ import { EmptyNameError, DuplicateNameError } from "@/lib/entries-util";
 import { getCache } from "@/lib/db/cache-repo";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
-import { currentWeek, currentSeason } from "@/lib/week";
+import { currentWeek, resolveSeason } from "@/lib/week";
 import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
 import type { Matchup } from "@/lib/types";
 
 export async function GET() {
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const week = currentWeek(schedule, new Date());
-  const results = await getResultsFresh(week, Number(process.env.NFL_SEASON) || currentSeason(new Date()));
+  const results = await getResultsFresh(week, resolveSeason());
   const statuses = await getEntryStatuses(results);
   const data = statuses.map(({ entry, status }) =>
     resource("entry", entry.id, {

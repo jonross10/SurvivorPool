@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { WinProb } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
+import { fetchAliveEntryNames, recordPick, errorDetail } from "@/lib/api-client";
 import TeamRow from "@/components/TeamRow";
 import TeamLogo from "@/components/TeamLogo";
 import { useRanks } from "@/components/use-ranks";
@@ -21,14 +22,7 @@ export default function GridPage() {
   const [error, setError] = useState<string | null>(null);
   const ranks = useRanks();
 
-  useEffect(() => {
-    fetch("/api/entries").then((r) => r.json())
-      .then((doc) => setEntryNames(
-        (doc.data ?? [])
-          .filter((e: { attributes: { eliminated?: boolean } }) => !e.attributes.eliminated)
-          .map((e: { attributes: { name: string } }) => e.attributes.name),
-      ));
-  }, []);
+  useEffect(() => { fetchAliveEntryNames().then(setEntryNames); }, []);
 
   useEffect(() => { if (!entry && entryNames.length) setEntry(entryNames[0]); }, [entryNames, entry]);
 
@@ -50,15 +44,9 @@ export default function GridPage() {
 
   async function confirmPick() {
     if (!pending) return;
-    const res = await fetch("/api/pick", {
-      method: "POST",
-      headers: { "content-type": "application/vnd.api+json" },
-      body: JSON.stringify({
-        data: { type: "pick", attributes: { entry, week: pending.week, team: pending.team, winProb: pending.prob } },
-      }),
-    });
+    const res = await recordPick(entry, pending.week, pending.team, pending.prob);
     if (!res.ok) {
-      setError((await res.json()).errors?.[0]?.detail ?? "Pick failed");
+      setError(await errorDetail(res, "Pick failed"));
       return;
     }
     setPending(null);

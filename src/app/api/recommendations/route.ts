@@ -4,7 +4,7 @@ import { nameToId } from "@/lib/entries-util";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
 import { pickResultViews } from "@/lib/elimination";
-import { currentWeek, currentSeason } from "@/lib/week";
+import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
 import { resource, document, jsonApi } from "@/lib/jsonapi";
 import type { Matchup, TeamStrength, MoneylineGame, TeamAbbr } from "@/lib/types";
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
 
   const cur = currentWeek(schedule, new Date());
-  const results = await getResultsFresh(cur, Number(process.env.NFL_SEASON) || currentSeason(new Date()));
+  const results = await getResultsFresh(cur, resolveSeason());
   // getEntryStatuses already loaded each entry with its picks; reuse that to
   // derive the used-team set and per-week pick map without re-querying.
   const statuses = await getEntryStatuses(results);
@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
   const recs = buildRecommendations(schedule, strengths, odds, usedByEntry, new Date(), safetyFloor);
   const week = recs[0]?.week ?? null;
-  const weeks = [...new Set(schedule.map((m) => m.week))].sort((a, b) => a - b);
+  const weeks = weeksOf(schedule);
   const data = recs.map((r) => {
     const status = statusByName[r.entry];
     const eliminated = status?.eliminated ?? false;

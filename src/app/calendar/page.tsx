@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { unwrapMany } from "@/lib/jsonapi-client";
+import { fetchAliveEntryNames } from "@/lib/api-client";
 import type { Matchup, GameResult } from "@/lib/types";
+import { TEAMS } from "@/lib/teams";
 import TeamRow from "@/components/TeamRow";
 import { useRanks } from "@/components/use-ranks";
 
@@ -18,12 +20,6 @@ function outcomeFor(team: string, r: GameResult | null | undefined): Outcome {
   return "lost";
 }
 
-const TEAMS = [
-  "ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB",
-  "HOU","IND","JAC","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG",
-  "NYJ","PHI","PIT","SF","SEA","TB","TEN","WAS",
-];
-
 interface EntryState { name: string; usedTeams: string[] }
 
 export default function CalendarPage() {
@@ -35,12 +31,7 @@ export default function CalendarPage() {
   const ranks = useRanks();
 
   useEffect(() => {
-    fetch("/api/entries").then((r) => r.json())
-      .then((doc) => setEntryNames(
-        (doc.data ?? [])
-          .filter((e: { attributes: { eliminated?: boolean } }) => !e.attributes.eliminated)
-          .map((e: { attributes: { name: string } }) => e.attributes.name),
-      ));
+    fetchAliveEntryNames().then(setEntryNames);
   }, []);
 
   useEffect(() => {
