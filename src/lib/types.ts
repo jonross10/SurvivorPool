@@ -76,8 +76,9 @@ export interface GameView {
 }
 
 export interface EntrySettings {
-  ties_survive?: boolean; // absent → treated as true
-  pool?: string;          // coordination group; absent → "main"
+  ties_survive?: boolean;   // absent → treated as true
+  pool?: string;            // coordination group; absent → "main"
+  min_win_chance?: number;  // 0..0.95 safety floor for this entry; absent → 0.6
 }
 
 export interface Entry {

@@ -30,6 +30,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       400,
     );
   }
+  if ("min_win_chance" in settings &&
+      (typeof settings.min_win_chance !== "number" || settings.min_win_chance < 0 || settings.min_win_chance > 0.95)) {
+    return jsonApi(
+      errorDocument([{ status: "400", title: "Invalid settings", detail: "min_win_chance must be a number between 0 and 0.95" }]),
+      400,
+    );
+  }
   await updateSettings(id, settings as EntrySettings);
   return jsonApi(metaDocument({ ok: true }));
 }

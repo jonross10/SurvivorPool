@@ -20,11 +20,10 @@ describe("buildRecommendations", () => {
       schedule, strengths, odds,
       [
         // Jon 1 already used KC in week 1, so it must not appear in their future plan.
-        { name: "Jon 1", pool: "main", picksByWeek: { 1: "KC" } },
-        { name: "Jon 2", pool: "main", picksByWeek: {} },
+        { name: "Jon 1", pool: "main", picksByWeek: { 1: "KC" }, safetyFloor: 0.6 },
+        { name: "Jon 2", pool: "main", picksByWeek: {}, safetyFloor: 0.6 },
       ],
       new Date("2026-09-09T00:00:00Z"),
-      0.6,
     );
     expect(recs.length).toBe(2);
     const jon1 = recs.find((r) => r.entry === "Jon 1")!;
@@ -36,11 +35,10 @@ describe("buildRecommendations", () => {
     const recs = buildRecommendations(
       schedule, strengths, odds,
       [
-        { name: "A", pool: "main", picksByWeek: {} },
-        { name: "B", pool: "main", picksByWeek: {} },
+        { name: "A", pool: "main", picksByWeek: {}, safetyFloor: 0 },
+        { name: "B", pool: "main", picksByWeek: {}, safetyFloor: 0 },
       ],
       new Date("2026-09-09T00:00:00Z"),
-      0,
     );
     const a = recs.find((r) => r.entry === "A")!;
     const b = recs.find((r) => r.entry === "B")!;

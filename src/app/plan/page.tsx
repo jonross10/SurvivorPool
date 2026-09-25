@@ -31,7 +31,7 @@ export default function PlanPage() {
   const ranks = useRanks();
 
   const load = useCallback(async () => {
-    const doc = await (await fetch("/api/recommendations?safetyFloor=0.6")).json();
+    const doc = await (await fetch("/api/recommendations")).json();
     const list: Rec[] = (doc.data ?? []).map((d: { attributes: Rec }) => d.attributes);
     setRecs(list);
     setWeeks(doc.meta?.weeks ?? []);
