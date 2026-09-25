@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 /** Per-entry settings modal: pool, tie rule, min win chance, and delete. */
 export default function EntrySettingsModal({
@@ -17,7 +18,8 @@ export default function EntrySettingsModal({
 }) {
   const [floor, setFloor] = useState(minWinChance);
   const commitFloor = () => { if (floor !== minWinChance) onSetFloor(floor); };
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-80 rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
@@ -75,6 +77,7 @@ export default function EntrySettingsModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
