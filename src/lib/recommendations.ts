@@ -8,6 +8,7 @@ export interface EntryPlanContext {
   name: string;
   pool: string;
   picksByWeek: Record<number, string>;
+  safetyFloor: number; // per-entry min win chance for the current-week pick
   eliminated?: boolean;
 }
 
@@ -17,9 +18,9 @@ export function buildRecommendations(
   odds: MoneylineGame[],
   entries: EntryPlanContext[],
   now: Date,
-  safetyFloor: number,
 ): Recommendation[] {
   const week = currentWeek(schedule, now);
+  const floorByEntry = new Map(entries.map((e) => [e.name, e.safetyFloor]));
 
   // Per-entry win probs (exclude used teams) and locked (already-picked, current+future) weeks.
   const winProbsByEntry = new Map<string, ReturnType<typeof buildWinProbs>>();
@@ -61,7 +62,7 @@ export function buildRecommendations(
       const cur = plan.path.find((p) => p.week === week);
       const exclude = new Set(taken);
       if (cur) exclude.delete(cur.team); // this entry may keep its own optimal pick
-      const rec = recommendFromPath(plan.entry, week, plan.path, winProbsByEntry.get(plan.entry)!, { safetyFloor }, exclude);
+      const rec = recommendFromPath(plan.entry, week, plan.path, winProbsByEntry.get(plan.entry)!, { safetyFloor: floorByEntry.get(plan.entry) ?? 0.6 }, exclude);
       if (cur) taken.delete(cur.team);
       if (rec.pick) taken.add(rec.pick);
       recs.push(rec);

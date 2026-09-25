@@ -9,8 +9,7 @@ import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
 import { resource, document, jsonApi } from "@/lib/jsonapi";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
-export async function GET(req: Request) {
-  const safetyFloor = Number(new URL(req.url).searchParams.get("safetyFloor") ?? "0.6");
+export async function GET() {
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const strengths = (await getCache<TeamStrength[]>("fpi"))?.payload ?? [];
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
@@ -26,6 +25,7 @@ export async function GET(req: Request) {
   const entryContexts = statuses.map((s) => ({
     name: s.entry.name,
     pool: (s.entry.settings as { pool?: string }).pool ?? "main",
+    safetyFloor: (s.entry.settings as { min_win_chance?: number }).min_win_chance ?? 0.6,
     picksByWeek: s.picksByWeek,
     eliminated: s.status.eliminated,
   }));
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     statuses.map((s) => [s.entry.name, s.picksByWeek]),
   );
 
-  const recs = buildRecommendations(schedule, strengths, odds, entryContexts, new Date(), safetyFloor);
+  const recs = buildRecommendations(schedule, strengths, odds, entryContexts, new Date());
   const week = recs[0]?.week ?? null;
   const weeks = weeksOf(schedule);
   // Win prob for a team in the current week (used to show the locked pick's odds).
@@ -74,5 +74,5 @@ export async function GET(req: Request) {
     if (ae === 1) return (Number(b.attributes.eliminatedWeek) || 0) - (Number(a.attributes.eliminatedWeek) || 0);
     return 0;
   });
-  return jsonApi(document(data, { currentWeek: week, safetyFloor, weeks }));
+  return jsonApi(document(data, { currentWeek: week, weeks }));
 }

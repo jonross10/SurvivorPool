@@ -24,7 +24,6 @@ export default function DashboardClient() {
   const [recs, setRecs] = useState<Rec[]>([]);
   const [weeks, setWeeks] = useState<number[]>([]);
   const [weekGames, setWeekGames] = useState<GameView[]>([]);
-  const [floor, setFloor] = useState(0.6);
   const [loading, setLoading] = useState(true);
   const [freshness, setFreshness] = useState<Freshness>({ fetchedAt: null, canRefreshNow: true, remainingMs: 0 });
   const [refreshing, setRefreshing] = useState(false);
@@ -36,7 +35,7 @@ export default function DashboardClient() {
   async function load() {
     setLoading(true);
     const [recDoc, entriesDoc, matchupsDoc] = await Promise.all([
-      fetch(`/api/recommendations?safetyFloor=${floor}`).then((r) => r.json()),
+      fetch(`/api/recommendations`).then((r) => r.json()),
       fetch(`/api/entries`).then((r) => r.json()),
       fetch(`/api/matchups`).then((r) => r.json()),
     ]);
@@ -52,7 +51,7 @@ export default function DashboardClient() {
     setWeeks(recDoc.meta?.weeks ?? []);
     setLoading(false);
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [floor]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   async function loadFreshness() {
     const doc = await (await fetch("/api/refresh")).json();
@@ -104,6 +103,11 @@ export default function DashboardClient() {
 
   async function setPool(r: Rec, pool: string) {
     await updateEntrySettings(r.entryId ?? "", { ...(r.settings ?? {}), pool });
+    load();
+  }
+
+  async function setMinWinChance(r: Rec, value: number) {
+    await updateEntrySettings(r.entryId ?? "", { ...(r.settings ?? {}), min_win_chance: value });
     load();
   }
 
@@ -167,19 +171,6 @@ export default function DashboardClient() {
         </div>
       )}
 
-      <label
-        className="mt-3 flex items-center gap-2 text-sm text-slate-500"
-        title="Won't suggest a team below this win chance for this week's pick. Higher = safer now; lower = trust the season-long plan."
-      >
-        Min. win chance
-        <input
-          type="range" min={0} max={0.95} step={0.05}
-          value={floor} onChange={(e) => setFloor(Number(e.target.value))}
-          className="accent-emerald-600"
-        />
-        <span className="w-9 font-semibold text-slate-700">{Math.round(floor * 100)}%</span>
-      </label>
-
       {loading && <p className="mt-4 text-slate-400">Loading…</p>}
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -196,6 +187,7 @@ export default function DashboardClient() {
             onRevive={reviveEntry}
             onToggleTies={setTiesSurvive}
             onSetPool={setPool}
+            onSetFloor={setMinWinChance}
             onRemove={removeEntry}
           />
         ))}

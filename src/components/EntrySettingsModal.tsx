@@ -1,17 +1,22 @@
 "use client";
+import { useState } from "react";
 
-/** Per-entry settings modal: pool, tie rule, and delete. */
+/** Per-entry settings modal: pool, tie rule, min win chance, and delete. */
 export default function EntrySettingsModal({
-  entryName, pool, tiesSurvive, onClose, onSetPool, onToggleTies, onDelete,
+  entryName, pool, tiesSurvive, minWinChance, onClose, onSetPool, onToggleTies, onSetFloor, onDelete,
 }: {
   entryName: string;
   pool: string;
   tiesSurvive: boolean;
+  minWinChance: number;
   onClose: () => void;
   onSetPool: (pool: string) => void;
   onToggleTies: (value: boolean) => void;
+  onSetFloor: (value: number) => void;
   onDelete: () => void;
 }) {
+  const [floor, setFloor] = useState(minWinChance);
+  const commitFloor = () => { if (floor !== minWinChance) onSetFloor(floor); };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-80 rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -43,6 +48,22 @@ export default function EntrySettingsModal({
               className="h-4 w-4 accent-emerald-600"
             />
           </label>
+
+          <div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-slate-700">Min. win chance</span>
+              <span className="font-semibold text-slate-700">{Math.round(floor * 100)}%</span>
+            </div>
+            <input
+              type="range" min={0} max={0.95} step={0.05}
+              value={floor}
+              onChange={(e) => setFloor(Number(e.target.value))}
+              onPointerUp={commitFloor}
+              onBlur={commitFloor}
+              className="mt-1 w-full accent-emerald-600"
+            />
+            <p className="text-xs text-slate-400">Won&apos;t suggest a team below this win chance for the current week.</p>
+          </div>
         </div>
 
         <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
