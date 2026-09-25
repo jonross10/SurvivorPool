@@ -2,6 +2,7 @@ import { ingestAll } from "@/lib/sources/ingest";
 import { getCache } from "@/lib/db/cache-repo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 import { cooldownRemainingMs } from "@/lib/refresh-cooldown";
+import { snapshotPregameProbs } from "@/lib/win-prob";
 import { resolveSeason } from "@/lib/week";
 
 /** When the data was last refreshed. Anchored on the schedule cache, which is
@@ -35,7 +36,8 @@ export async function POST() {
       resolveSeason(),
       process.env.ODDS_API_KEY ?? "",
     );
-    return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString(), ...result }));
+    const pregame = await snapshotPregameProbs();
+    return jsonApi(metaDocument({ ok: true, refreshedAt: new Date().toISOString(), ...result, pregame }));
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     console.error("[refresh] ingest failed:", detail);

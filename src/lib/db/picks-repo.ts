@@ -33,6 +33,22 @@ export async function getUsedTeams(entryId: string): Promise<Set<TeamAbbr>> {
   return deriveUsedTeams(await getPicks(entryId));
 }
 
+export interface AllPickRow { entryId: string; week: number; team: TeamAbbr }
+
+/** Every pick across all entries (for pregame-probability snapshots). */
+export async function getAllPicks(): Promise<AllPickRow[]> {
+  return (await sql`
+    SELECT entry_id AS "entryId", week, team FROM picks
+  `) as unknown as AllPickRow[];
+}
+
+/** Record the latest pre-kickoff win probability for a pick. */
+export async function setPregameProb(entryId: string, week: number, prob: number): Promise<void> {
+  await sql`
+    UPDATE picks SET win_prob_pregame = ${prob} WHERE entry_id = ${entryId} AND week = ${week}
+  `;
+}
+
 export async function removePick(entryId: string, week: number): Promise<boolean> {
   const rows = (await sql`
     DELETE FROM picks WHERE entry_id = ${entryId} AND week = ${week} RETURNING id
