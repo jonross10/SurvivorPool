@@ -1,14 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { GameView, WinProb } from "@/lib/types";
+import type { GameView } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import {
-  recordPick, removePick, setPickOverride, clearPickOverride,
+  recordPick, removePick, setPickOverride,
   updateEntrySettings, createEntry, deleteEntry, errorDetail,
 } from "@/lib/api-client";
 import EntryCard, { type Rec } from "@/components/EntryCard";
-import PickModal from "@/components/PickModal";
 import { useRanks } from "@/components/use-ranks";
+import { usePickModal } from "@/components/use-pick-modal";
 
 interface Freshness { fetchedAt: string | null; canRefreshNow: boolean; remainingMs: number }
 
@@ -30,9 +30,8 @@ export default function DashboardClient() {
   const [refreshing, setRefreshing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
-  const [pickModal, setPickModal] = useState<{ entry: string; week: number; current?: string } | null>(null);
-  const [modalWps, setModalWps] = useState<WinProb[]>([]);
   const ranks = useRanks();
+  const modal = usePickModal(load);
 
   async function load() {
     setLoading(true);
@@ -68,40 +67,6 @@ export default function DashboardClient() {
     else await load();
     await loadFreshness();
     setRefreshing(false);
-  }
-
-  async function openPickModal(r: Rec, week: number) {
-    setPickModal({ entry: r.entry, week, current: r.picksByWeek?.[week] });
-    setModalWps([]);
-    const doc = await (await fetch(`/api/grid?filter[entry]=${encodeURIComponent(r.entry)}`)).json();
-    setModalWps(unwrapMany<WinProb>(doc));
-  }
-
-  async function pickForWeek(entry: string, week: number, team: string, prob: number) {
-    // Swap: if the week already has a different pick, remove it first (UNIQUE week).
-    if (pickModal?.current && pickModal.current !== team) await removePick(entry, week);
-    const res = await recordPick(entry, week, team, prob);
-    if (!res.ok) alert(await errorDetail(res, "Pick failed"));
-    setPickModal(null);
-    load();
-  }
-
-  async function clearWeek(entry: string, week: number) {
-    await removePick(entry, week);
-    setPickModal(null);
-    load();
-  }
-
-  async function overrideWeek(entry: string, week: number, outcome: "survived" | "out" | "revived") {
-    await setPickOverride(entry, week, outcome);
-    setPickModal(null);
-    load();
-  }
-
-  async function clearOverrideWeek(entry: string, week: number) {
-    await clearPickOverride(entry, week);
-    setPickModal(null);
-    load();
   }
 
   async function addEntry() {
@@ -147,7 +112,8 @@ export default function DashboardClient() {
     if (!window.confirm(
       `Revive ${r.entry}? Their Week ${r.eliminatedWeek} loss stays on the record, but they'll be marked back in (buy-back).`,
     )) return;
-    await overrideWeek(r.entry, r.eliminatedWeek, "revived");
+    await setPickOverride(r.entry, r.eliminatedWeek, "revived");
+    load();
   }
 
   const currentWk = recs[0]?.week ?? null;
@@ -224,7 +190,7 @@ export default function DashboardClient() {
             weeks={weeks}
             ranks={ranks}
             weekGames={weekGames}
-            onOpenWeek={openPickModal}
+            onOpenWeek={(r, w) => modal.open(r.entry, w, r.picksByWeek?.[w])}
             onUndo={undo}
             onConfirm={confirm}
             onRevive={reviveEntry}
@@ -235,20 +201,7 @@ export default function DashboardClient() {
         ))}
       </div>
 
-      {pickModal && (
-        <PickModal
-          entry={pickModal.entry}
-          week={pickModal.week}
-          current={pickModal.current}
-          wps={modalWps}
-          ranks={ranks}
-          onClose={() => setPickModal(null)}
-          onClear={clearWeek}
-          onPick={pickForWeek}
-          onOverride={overrideWeek}
-          onClearOverride={clearOverrideWeek}
-        />
-      )}
+      {modal.render(ranks)}
     </main>
   );
 }
