@@ -1,6 +1,7 @@
 import { recordPick, removePick } from "@/lib/db/picks-repo";
 import { getEntries } from "@/lib/db/entries-repo";
 import { nameToId } from "@/lib/entries-util";
+import { winProbFor } from "@/lib/win-prob";
 import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 interface PickAttrs { entry: string; week: number; team: string; winProb?: number }
@@ -17,9 +18,12 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid pick", detail: "entry, week, and team are required" }]), 400);
   }
   try {
-    await recordPick(entryId, week, team, winProb ?? 0);
+    // Record the server-computed win prob so it's correct regardless of which
+    // page made the pick; fall back to any client-supplied value, else 0.
+    const prob = (await winProbFor(week, team)) ?? winProb ?? 0;
+    await recordPick(entryId, week, team, prob);
     return jsonApi(
-      document(resource("pick", `${entryId}:${week}`, { entry, week, team, winProb: winProb ?? 0 })),
+      document(resource("pick", `${entryId}:${week}`, { entry, week, team, winProb: prob })),
       201,
     );
   } catch (e: unknown) {

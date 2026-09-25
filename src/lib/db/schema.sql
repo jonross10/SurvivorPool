@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS picks (
   UNIQUE (entry_id, week)
 );
 
+-- Latest win probability captured while the picked game was still upcoming
+-- (refreshed on every stats refresh, then frozen once the game kicks off).
+ALTER TABLE picks ADD COLUMN IF NOT EXISTS win_prob_pregame DOUBLE PRECISION;
+
 CREATE TABLE IF NOT EXISTS cache (
   key        TEXT PRIMARY KEY,
   payload    JSONB NOT NULL,
