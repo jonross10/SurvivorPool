@@ -58,8 +58,12 @@ export default function PlanPage() {
       <h1 className="text-2xl font-bold tracking-tight">Projected Picks</h1>
       {survival.length > 0 && (
         <p className="mt-1 text-sm text-slate-500">
-          Portfolio P(≥1 alive):{" "}
-          {survival.map((s) => <span key={s.week} className="mr-3"><strong className="text-slate-800">W{s.week}</strong> {Math.round(s.prob * 100)}%</span>)}
+          Chance at least one entry is still alive through the end of:{" "}
+          {survival.map((s) => (
+            <span key={s.week} className="mr-3">
+              <strong className="text-slate-800">Week {s.week}</strong> — {Math.round(s.prob * 100)}%
+            </span>
+          ))}
         </p>
       )}
 
@@ -82,12 +86,13 @@ export default function PlanPage() {
                 {weeks.map((w) => {
                   const c = cellFor(r, w);
                   const proj = r.projectedPath?.find((p) => p.week === w);
+                  const clickable = !r.eliminated; // out entries can't pick
                   return (
                     <td
                       key={w}
-                      onClick={() => modal.open(r.entry, w, r.picksByWeek?.[w])}
+                      onClick={clickable ? () => modal.open(r.entry, w, r.picksByWeek?.[w]) : undefined}
                       title={proj ? `${Math.round(proj.prob * 100)}% projected` : c.score}
-                      className={`cursor-pointer border-b border-r px-1 py-1 text-center align-top hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-slate-900 ${cellClass(c.outcome, c.projected)}`}
+                      className={`border-b border-r px-1 py-1 text-center align-top ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-slate-900" : ""} ${cellClass(c.outcome, c.projected)}`}
                     >
                       {c.team ? (
                         <div className="flex flex-col items-center">

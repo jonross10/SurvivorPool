@@ -55,7 +55,14 @@ export async function GET(req: Request) {
       resultsByWeek: pickResultViews(picksByWeek, results, status?.byWeek ?? {}),
     });
   });
-  // Alive entries first, then eliminated, each group keeping the name order.
-  data.sort((a, b) => Number(a.attributes.eliminated) - Number(b.attributes.eliminated));
+  // Alive entries first (name order), then eliminated ordered by how long they
+  // lasted — most-recently-out higher, earliest-out at the bottom.
+  data.sort((a, b) => {
+    const ae = a.attributes.eliminated ? 1 : 0;
+    const be = b.attributes.eliminated ? 1 : 0;
+    if (ae !== be) return ae - be;
+    if (ae === 1) return (Number(b.attributes.eliminatedWeek) || 0) - (Number(a.attributes.eliminatedWeek) || 0);
+    return 0;
+  });
   return jsonApi(document(data, { currentWeek: week, safetyFloor, weeks }));
 }
