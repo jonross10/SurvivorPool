@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recommend } from "@/lib/pick-engine";
+import { recommend, recommendFromPath } from "@/lib/pick-engine";
 import type { WinProb } from "@/lib/types";
 
 // Juggernaut KC 0.97 both weeks; SF 0.85 this week, 0.55 next.
@@ -59,5 +59,25 @@ describe("recommend", () => {
   it("returns a null pick when no teams are available", () => {
     const rec = recommend("Jon 1", 1, [], { safetyFloor: 0 });
     expect(rec.pick).toBeNull();
+  });
+});
+
+describe("recommendFromPath floor swap avoids already-taken teams", () => {
+  // Optimal current pick is BUF (0.55, below floor). Safe teams clearing 0.7: KC then SF.
+  const wps2: WinProb[] = [
+    { week: 1, team: "BUF", opponent: "X", home: true, prob: 0.55, source: "odds" },
+    { week: 1, team: "KC", opponent: "Y", home: true, prob: 0.9, source: "odds" },
+    { week: 1, team: "SF", opponent: "Z", home: true, prob: 0.8, source: "odds" },
+  ];
+  const path = [{ week: 1, team: "BUF", prob: 0.55 }];
+
+  it("swaps to the safest team when nothing is taken", () => {
+    const rec = recommendFromPath("E", 1, path, wps2, { safetyFloor: 0.7 });
+    expect(rec.pick).toBe("KC");
+  });
+
+  it("skips a taken team and picks the next safest", () => {
+    const rec = recommendFromPath("E", 1, path, wps2, { safetyFloor: 0.7 }, new Set(["KC"]));
+    expect(rec.pick).toBe("SF");
   });
 });
