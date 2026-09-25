@@ -16,7 +16,10 @@ describe("buildRecommendations", () => {
   it("produces one recommendation per entry, excluding used teams", () => {
     const recs = buildRecommendations(
       schedule, strengths, odds,
-      { "Jon 1": new Set(["KC"]), "Jon 2": new Set() },
+      [
+        { name: "Jon 1", pool: "main", used: new Set(["KC"]), picksByWeek: {} },
+        { name: "Jon 2", pool: "main", used: new Set(), picksByWeek: {} },
+      ],
       new Date("2026-09-09T00:00:00Z"),
       0.6,
     );

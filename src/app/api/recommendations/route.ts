@@ -6,7 +6,7 @@ import { getEntryStatuses } from "@/lib/entry-status";
 import { pickResultViews } from "@/lib/elimination";
 import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
 import { resource, document, jsonApi } from "@/lib/jsonapi";
-import type { Matchup, TeamStrength, MoneylineGame, TeamAbbr } from "@/lib/types";
+import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
 export async function GET(req: Request) {
   const safetyFloor = Number(new URL(req.url).searchParams.get("safetyFloor") ?? "0.6");
@@ -22,14 +22,17 @@ export async function GET(req: Request) {
   const statusByName = Object.fromEntries(statuses.map((s) => [s.entry.name, s.status]));
   const idByName = nameToId(statuses.map((s) => s.entry));
 
-  const usedByEntry: Record<string, Set<TeamAbbr>> = {};
-  const picksByWeekByEntry: Record<string, Record<number, string>> = {};
-  for (const s of statuses) {
-    usedByEntry[s.entry.name] = new Set(Object.values(s.picksByWeek));
-    picksByWeekByEntry[s.entry.name] = s.picksByWeek;
-  }
+  const entryContexts = statuses.map((s) => ({
+    name: s.entry.name,
+    pool: (s.entry.settings as { pool?: string }).pool ?? "main",
+    used: new Set(Object.values(s.picksByWeek)),
+    picksByWeek: s.picksByWeek,
+  }));
+  const picksByWeekByEntry: Record<string, Record<number, string>> = Object.fromEntries(
+    statuses.map((s) => [s.entry.name, s.picksByWeek]),
+  );
 
-  const recs = buildRecommendations(schedule, strengths, odds, usedByEntry, new Date(), safetyFloor);
+  const recs = buildRecommendations(schedule, strengths, odds, entryContexts, new Date(), safetyFloor);
   const week = recs[0]?.week ?? null;
   const weeks = weeksOf(schedule);
   const data = recs.map((r) => {
