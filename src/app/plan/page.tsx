@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import TeamLogo from "@/components/TeamLogo";
 import { useRanks } from "@/components/use-ranks";
 import { usePickModal } from "@/components/use-pick-modal";
+import { survivalCurve } from "@/lib/portfolio";
 
 type Rv = { outcome: "won" | "lost" | "tie" | "pending" | "live"; teamScore: number | null; oppScore: number | null };
 interface Rec {
@@ -33,15 +34,9 @@ export default function PlanPage() {
     setWeeks(doc.meta?.weeks ?? []);
     // Portfolio survival over the next up-to-6 projected weeks (alive entries only).
     const alive = list.filter((r) => !r.eliminated);
-    const future = [...new Set(alive.flatMap((r) => (r.projectedPath ?? []).map((p) => p.week)))].sort((a, b) => a - b).slice(0, 6);
-    const curve = future.map((week) => {
-      const pAllOut = alive.reduce((acc, r) => {
-        const s = (r.projectedPath ?? []).filter((p) => p.week <= week).reduce((prod, p) => prod * p.prob, 1);
-        return acc * (1 - s);
-      }, 1);
-      return { week, prob: alive.length ? 1 - pAllOut : 0 };
-    });
-    setSurvival(curve);
+    const plans = alive.map((r) => ({ entry: r.entry, path: r.projectedPath ?? [] }));
+    const future = [...new Set(plans.flatMap((p) => p.path.map((x) => x.week)))].sort((a, b) => a - b).slice(0, 6);
+    setSurvival(survivalCurve(plans, future));
   }, []);
   useEffect(() => { load(); }, [load]);
 

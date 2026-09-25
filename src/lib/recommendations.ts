@@ -7,7 +7,6 @@ import { currentWeek } from "./week";
 export interface EntryPlanContext {
   name: string;
   pool: string;
-  used: Set<TeamAbbr>;
   picksByWeek: Record<number, string>;
   eliminated?: boolean;
 }
@@ -26,7 +25,8 @@ export function buildRecommendations(
   const winProbsByEntry = new Map<string, ReturnType<typeof buildWinProbs>>();
   const lockedByEntry = new Map<string, Record<number, string>>();
   for (const e of entries) {
-    winProbsByEntry.set(e.name, buildWinProbs(schedule, strengths, odds, week, e.used));
+    const used = new Set<TeamAbbr>(Object.values(e.picksByWeek));
+    winProbsByEntry.set(e.name, buildWinProbs(schedule, strengths, odds, week, used));
     lockedByEntry.set(
       e.name,
       Object.fromEntries(
@@ -50,8 +50,21 @@ export function buildRecommendations(
       lockedByWeek: lockedByEntry.get(e.name)!,
     }));
     const plans = planPortfolio(inputs);
+
+    // Current-week teams already spoken for in this pool (locked picks + each plan's
+    // optimal current-week team). Passed to the floor swap so it can't collide.
+    const taken = new Set<TeamAbbr>();
+    for (const e of poolEntries) { const t = lockedByEntry.get(e.name)![week]; if (t) taken.add(t); }
+    for (const plan of plans) { const cur = plan.path.find((p) => p.week === week); if (cur) taken.add(cur.team); }
+
     for (const plan of plans) {
-      recs.push(recommendFromPath(plan.entry, week, plan.path, winProbsByEntry.get(plan.entry)!, { safetyFloor }));
+      const cur = plan.path.find((p) => p.week === week);
+      const exclude = new Set(taken);
+      if (cur) exclude.delete(cur.team); // this entry may keep its own optimal pick
+      const rec = recommendFromPath(plan.entry, week, plan.path, winProbsByEntry.get(plan.entry)!, { safetyFloor }, exclude);
+      if (cur) taken.delete(cur.team);
+      if (rec.pick) taken.add(rec.pick);
+      recs.push(rec);
     }
   }
   // Eliminated entries still need a (stub) rec so the UI can render their card/row.

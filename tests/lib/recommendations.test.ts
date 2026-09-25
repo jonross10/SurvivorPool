@@ -5,6 +5,8 @@ import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 const schedule: Matchup[] = [
   { week: 1, home: "BUF", away: "NYJ", kickoff: "2026-09-10T00:00:00Z" },
   { week: 1, home: "KC", away: "DET", kickoff: "2026-09-10T00:00:00Z" },
+  { week: 2, home: "KC", away: "BUF", kickoff: "2026-09-17T00:00:00Z" },
+  { week: 2, home: "DET", away: "NYJ", kickoff: "2026-09-17T00:00:00Z" },
 ];
 const strengths: TeamStrength[] = [
   { team: "BUF", fpi: 6 }, { team: "NYJ", fpi: -3 },
@@ -13,19 +15,35 @@ const strengths: TeamStrength[] = [
 const odds: MoneylineGame[] = [];
 
 describe("buildRecommendations", () => {
-  it("produces one recommendation per entry, excluding used teams", () => {
+  it("produces one recommendation per entry, excluding already-picked (used) teams", () => {
     const recs = buildRecommendations(
       schedule, strengths, odds,
       [
-        { name: "Jon 1", pool: "main", used: new Set(["KC"]), picksByWeek: {} },
-        { name: "Jon 2", pool: "main", used: new Set(), picksByWeek: {} },
+        // Jon 1 already used KC in week 1, so it must not appear in their future plan.
+        { name: "Jon 1", pool: "main", picksByWeek: { 1: "KC" } },
+        { name: "Jon 2", pool: "main", picksByWeek: {} },
       ],
       new Date("2026-09-09T00:00:00Z"),
       0.6,
     );
     expect(recs.length).toBe(2);
     const jon1 = recs.find((r) => r.entry === "Jon 1")!;
-    expect(jon1.projectedPath.every((p) => p.team !== "KC")).toBe(true);
     expect(jon1.week).toBe(1);
+    expect(jon1.projectedPath.every((p) => p.team !== "KC")).toBe(true);
+  });
+
+  it("diversifies current-week picks across entries in the same pool", () => {
+    const recs = buildRecommendations(
+      schedule, strengths, odds,
+      [
+        { name: "A", pool: "main", picksByWeek: {} },
+        { name: "B", pool: "main", picksByWeek: {} },
+      ],
+      new Date("2026-09-09T00:00:00Z"),
+      0,
+    );
+    const a = recs.find((r) => r.entry === "A")!;
+    const b = recs.find((r) => r.entry === "B")!;
+    expect(a.pick).not.toBe(b.pick); // distinct current-week picks
   });
 });

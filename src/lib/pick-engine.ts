@@ -37,6 +37,7 @@ export function recommendFromPath(
   path: PathEntry[],
   winProbs: WinProb[],
   opts: EngineOptions,
+  takenThisWeek: Set<TeamAbbr> = new Set(),
 ): Recommendation {
   const currentWeekProbs = winProbs
     .filter((w) => w.week === currentWeek)
@@ -49,7 +50,9 @@ export function recommendFromPath(
   let pick: TeamAbbr | null = optimalCurrent?.team ?? null;
   let prob = optimalCurrent?.prob ?? 0;
   if (optimalCurrent && optimalCurrent.prob < opts.safetyFloor) {
-    const safe = currentWeekProbs.find((w) => w.prob >= opts.safetyFloor);
+    // Swap to the safest team clearing the floor that another pool entry hasn't
+    // already taken this week, so the floor override doesn't undo diversification.
+    const safe = currentWeekProbs.find((w) => w.prob >= opts.safetyFloor && !takenThisWeek.has(w.team));
     if (safe) { pick = safe.team; prob = safe.prob; }
   }
   if (!pick) {

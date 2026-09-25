@@ -25,7 +25,6 @@ export async function GET(req: Request) {
   const entryContexts = statuses.map((s) => ({
     name: s.entry.name,
     pool: (s.entry.settings as { pool?: string }).pool ?? "main",
-    used: new Set(Object.values(s.picksByWeek)),
     picksByWeek: s.picksByWeek,
     eliminated: s.status.eliminated,
   }));
