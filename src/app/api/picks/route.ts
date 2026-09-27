@@ -2,6 +2,7 @@ import { recordPick, removePick } from "@/lib/db/picks-repo";
 import { getEntries } from "@/lib/db/entries-repo";
 import { nameToId } from "@/lib/entries-util";
 import { winProbFor } from "@/lib/win-prob";
+import { requireAgentWrite } from "@/lib/agent-auth";
 import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 interface PickAttrs { entry: string; week: number; team: string; winProb?: number }
@@ -12,6 +13,8 @@ async function readAttrs(req: Request): Promise<Partial<PickAttrs>> {
 }
 
 export async function POST(req: Request) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const { entry, week, team, winProb } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
   if (!entryId || week === undefined || !team) {
@@ -33,6 +36,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const { entry, week } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
   if (!entryId || week === undefined) {
