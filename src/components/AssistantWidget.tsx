@@ -1,9 +1,13 @@
 "use client";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import AssistantChat from "./AssistantChat";
 
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // The dedicated /assistant page already renders the chat full-width.
+  if (pathname === "/assistant") return null;
   return (
     <>
       <button

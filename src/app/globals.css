@@ -6,3 +6,67 @@ html,
 body {
   @apply bg-slate-50 text-slate-900;
 }
+
+/* Markdown rendered in the assistant chat bubbles. Tailwind base strips
+   default element spacing, so restore just what the chat needs. */
+.assistant-md > :first-child {
+  margin-top: 0;
+}
+.assistant-md > :last-child {
+  margin-bottom: 0;
+}
+.assistant-md p {
+  margin: 0.5rem 0;
+}
+.assistant-md strong {
+  font-weight: 600;
+}
+.assistant-md ul,
+.assistant-md ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.assistant-md ul {
+  list-style: disc;
+}
+.assistant-md ol {
+  list-style: decimal;
+}
+.assistant-md li {
+  margin: 0.15rem 0;
+}
+.assistant-md h1,
+.assistant-md h2,
+.assistant-md h3 {
+  margin: 0.6rem 0 0.3rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.assistant-md h1 { font-size: 1.05rem; }
+.assistant-md h2 { font-size: 1rem; }
+.assistant-md h3 { font-size: 0.95rem; }
+.assistant-md a {
+  color: #059669;
+  text-decoration: underline;
+}
+.assistant-md code {
+  background: #e2e8f0;
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.85em;
+}
+.assistant-md table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  width: 100%;
+}
+.assistant-md th,
+.assistant-md td {
+  border: 1px solid #cbd5e1;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+.assistant-md th {
+  background: #e2e8f0;
+  font-weight: 600;
+}
