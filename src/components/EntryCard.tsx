@@ -12,7 +12,7 @@ export type Rec = Recommendation & {
   picksByWeek?: Record<number, string>;
   eliminated?: boolean;
   eliminatedWeek?: number | null;
-  settings?: { ties_survive?: boolean; pool?: string; min_win_chance?: number };
+  settings?: { ties_survive?: boolean; pool?: string; min_win_chance?: number; pick_due?: { day: number; time: string } | null };
   resultsByWeek?: Record<number, {
     week: number; team: string; outcome: "won" | "lost" | "tie" | "pending" | "live";
     teamScore: number | null; oppScore: number | null; opponent: string | null; statusDetail: string;
@@ -30,7 +30,7 @@ function cellClasses(outcome: string | undefined, isCurrent: boolean, eliminated
 
 export default function EntryCard({
   rec: r, weeks, ranks, weekGames,
-  onOpenWeek, onUndo, onConfirm, onRevive, onToggleTies, onSetPool, onSetFloor, onRemove,
+  onOpenWeek, onUndo, onConfirm, onRevive, onToggleTies, onSetPool, onSetFloor, onSetPickDue, onRemove,
 }: {
   rec: Rec;
   weeks: number[];
@@ -43,6 +43,7 @@ export default function EntryCard({
   onToggleTies: (rec: Rec, value: boolean) => void;
   onSetPool: (rec: Rec, pool: string) => void;
   onSetFloor: (rec: Rec, value: number) => void;
+  onSetPickDue: (rec: Rec, value: { day: number; time: string } | null) => void;
   onRemove: (rec: Rec) => void;
 }) {
   const gameFor = (team: string | null | undefined): GameView | undefined =>
@@ -74,10 +75,12 @@ export default function EntryCard({
           pool={r.settings?.pool ?? "main"}
           tiesSurvive={r.settings?.ties_survive ?? true}
           minWinChance={r.settings?.min_win_chance ?? 0.6}
+          pickDue={r.settings?.pick_due ?? null}
           onClose={() => setSettingsOpen(false)}
           onSetPool={(v) => onSetPool(r, v)}
           onToggleTies={(v) => onToggleTies(r, v)}
           onSetFloor={(v) => onSetFloor(r, v)}
+          onSetPickDue={(v) => onSetPickDue(r, v)}
           onDelete={() => { setSettingsOpen(false); onRemove(r); }}
         />
       )}

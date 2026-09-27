@@ -37,6 +37,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       400,
     );
   }
+  if ("pick_due" in settings && settings.pick_due !== null) {
+    const pd = settings.pick_due;
+    const validDay = typeof pd?.day === "number" && Number.isInteger(pd.day) && pd.day >= 0 && pd.day <= 6;
+    const validTime = typeof pd?.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(pd.time);
+    if (!validDay || !validTime) {
+      return jsonApi(
+        errorDocument([{ status: "400", title: "Invalid settings", detail: "pick_due must be { day: 0-6, time: 'HH:MM' } or null" }]),
+        400,
+      );
+    }
+  }
   await updateSettings(id, settings as EntrySettings);
   return jsonApi(metaDocument({ ok: true }));
 }

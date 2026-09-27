@@ -40,8 +40,9 @@ export default function DashboardClient() {
       fetch(`/api/matchups`).then((r) => r.json()),
     ]);
     setWeekGames(unwrapMany<GameView>(matchupsDoc));
-    const settingsByName: Record<string, { ties_survive?: boolean; pool?: string }> = Object.fromEntries(
-      (entriesDoc.data ?? []).map((d: { attributes: { name: string; settings?: { ties_survive?: boolean; pool?: string } } }) =>
+    type Settings = { ties_survive?: boolean; pool?: string; min_win_chance?: number; pick_due?: { day: number; time: string } | null };
+    const settingsByName: Record<string, Settings> = Object.fromEntries(
+      (entriesDoc.data ?? []).map((d: { attributes: { name: string; settings?: Settings } }) =>
         [d.attributes.name, d.attributes.settings ?? {}]),
     );
     const recsWithId: Rec[] = (recDoc.data ?? []).map(
@@ -108,6 +109,11 @@ export default function DashboardClient() {
 
   async function setMinWinChance(r: Rec, value: number) {
     await updateEntrySettings(r.entryId ?? "", { ...(r.settings ?? {}), min_win_chance: value });
+    load();
+  }
+
+  async function setPickDue(r: Rec, value: { day: number; time: string } | null) {
+    await updateEntrySettings(r.entryId ?? "", { ...(r.settings ?? {}), pick_due: value });
     load();
   }
 
@@ -188,6 +194,7 @@ export default function DashboardClient() {
             onToggleTies={setTiesSurvive}
             onSetPool={setPool}
             onSetFloor={setMinWinChance}
+            onSetPickDue={setPickDue}
             onRemove={removeEntry}
           />
         ))}
