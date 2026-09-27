@@ -129,7 +129,7 @@ export default function DashboardClient() {
     <main className="mx-auto max-w-4xl px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold tracking-tight">
-          Survivor Pool <span className="text-slate-400">— Week {currentWk ?? "?"}</span>
+          Survivor Assistant <span className="text-slate-400">— Week {currentWk ?? "?"}</span>
         </h1>
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400">Updated {timeAgo(freshness.fetchedAt)}</span>

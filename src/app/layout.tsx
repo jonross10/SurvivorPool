@@ -6,7 +6,7 @@ import Nav from "./nav";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Survivor Pool",
+  title: "Survivor Assistant",
   description: "NFL survivor pool picks, win probabilities, and results",
 };
 
