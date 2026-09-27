@@ -1,3 +1,11 @@
+/**
+ * A valid American moneyline always has magnitude >= 100 (e.g. -110, +100, +2500).
+ * Values like -1, 0, or +50 are impossible and indicate corrupt/mis-parsed data.
+ */
+export function isValidAmericanOdds(odds: number): boolean {
+  return Number.isFinite(odds) && Math.abs(odds) >= 100;
+}
+
 /** American odds → raw implied probability (includes the vig). */
 export function americanToImplied(odds: number): number {
   return odds < 0 ? -odds / (-odds + 100) : 100 / (odds + 100);

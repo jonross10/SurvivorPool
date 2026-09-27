@@ -1,6 +1,7 @@
 import { setOverride, clearOverride, type OverrideOutcome } from "@/lib/db/pick-overrides-repo";
 import { getEntries } from "@/lib/db/entries-repo";
 import { nameToId } from "@/lib/entries-util";
+import { requireAgentWrite } from "@/lib/agent-auth";
 import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 interface Attrs { entry: string; week: number; outcome: OverrideOutcome }
@@ -15,6 +16,8 @@ function isValidWeek(week: unknown): week is number {
 }
 
 export async function POST(req: Request) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const { entry, week, outcome } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
   if (!entryId || !isValidWeek(week) || (outcome !== "survived" && outcome !== "out" && outcome !== "revived")) {
@@ -28,6 +31,8 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const { entry, week } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries())[entry] : undefined;
   if (!entryId || !isValidWeek(week)) {

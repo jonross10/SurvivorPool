@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/calendar", label: "Calendar" },
   { href: "/plan", label: "Plan" },
   { href: "/grid", label: "Grid" },
+  { href: "/assistant", label: "Assistant" },
 ];
 
 export default function Nav() {

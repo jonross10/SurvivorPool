@@ -1,5 +1,6 @@
 import type { MoneylineGame } from "../types";
 import { normalizeTeam } from "../teams";
+import { isValidAmericanOdds } from "../odds";
 
 interface OddsOutcome { name: string; price: number; point?: number }
 interface OddsMarket { key: string; outcomes: OddsOutcome[] }
@@ -16,7 +17,8 @@ function avgPrice(game: OddsGame, teamName: string): number | null {
   for (const book of game.bookmakers ?? []) {
     const h2h = book.markets.find((m) => m.key === "h2h");
     const outcome = h2h?.outcomes.find((o) => o.name === teamName);
-    if (outcome) prices.push(outcome.price);
+    // Skip corrupt prices so one bad book can't drag the average to a nonsense value.
+    if (outcome && isValidAmericanOdds(outcome.price)) prices.push(outcome.price);
   }
   if (prices.length === 0) return null;
   return prices.reduce((a, b) => a + b, 0) / prices.length;

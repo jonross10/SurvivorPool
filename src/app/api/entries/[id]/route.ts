@@ -1,53 +1,50 @@
-import { deleteEntry, updateSettings } from "@/lib/db/entries-repo";
+import { deleteEntry, updateSettings, renameEntry } from "@/lib/db/entries-repo";
+import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
+import { requireAgentWrite } from "@/lib/agent-auth";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
-import type { EntrySettings } from "@/lib/types";
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const { id } = await params;
   const deleted = await deleteEntry(id);
   return jsonApi(metaDocument({ deleted }));
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  const settings = body?.data?.attributes?.settings;
-  if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+  const attrs = body?.data?.attributes ?? {};
+  // Rename: a `name` attribute renames the entry. Handled independently of settings.
+  if ("name" in attrs) {
+    try {
+      await renameEntry(id, attrs.name);
+    } catch (err) {
+      if (err instanceof EmptyNameError) {
+        return jsonApi(errorDocument([{ status: "400", title: "Invalid name", detail: err.message }]), 400);
+      }
+      if (err instanceof DuplicateNameError) {
+        return jsonApi(errorDocument([{ status: "409", title: "Duplicate entry", detail: err.message }]), 409);
+      }
+      throw err;
+    }
+    // A name-only PATCH is complete; settings are optional in the same call.
+    if (!("settings" in attrs)) return jsonApi(metaDocument({ ok: true }));
+  }
+  const raw = attrs.settings;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return jsonApi(
       errorDocument([{ status: "400", title: "Invalid settings", detail: "A settings object is required" }]),
       400,
     );
   }
-  if ("ties_survive" in settings && typeof settings.ties_survive !== "boolean") {
-    return jsonApi(
-      errorDocument([{ status: "400", title: "Invalid settings", detail: "ties_survive must be a boolean" }]),
-      400,
-    );
+  const settings = normalizeSettings(raw as Record<string, unknown>);
+  const settingsError = validateSettings(settings);
+  if (settingsError) {
+    return jsonApi(errorDocument([{ status: "400", title: "Invalid settings", detail: settingsError }]), 400);
   }
-  if ("pool" in settings && (typeof settings.pool !== "string" || settings.pool.trim() === "")) {
-    return jsonApi(
-      errorDocument([{ status: "400", title: "Invalid settings", detail: "pool must be a non-empty string" }]),
-      400,
-    );
-  }
-  if ("min_win_chance" in settings &&
-      (typeof settings.min_win_chance !== "number" || settings.min_win_chance < 0 || settings.min_win_chance > 0.95)) {
-    return jsonApi(
-      errorDocument([{ status: "400", title: "Invalid settings", detail: "min_win_chance must be a number between 0 and 0.95" }]),
-      400,
-    );
-  }
-  if ("pick_due" in settings && settings.pick_due !== null) {
-    const pd = settings.pick_due;
-    const validDay = typeof pd?.day === "number" && Number.isInteger(pd.day) && pd.day >= 0 && pd.day <= 6;
-    const validTime = typeof pd?.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(pd.time);
-    if (!validDay || !validTime) {
-      return jsonApi(
-        errorDocument([{ status: "400", title: "Invalid settings", detail: "pick_due must be { day: 0-6, time: 'HH:MM' } or null" }]),
-        400,
-      );
-    }
-  }
-  await updateSettings(id, settings as EntrySettings);
+  await updateSettings(id, settings);
   return jsonApi(metaDocument({ ok: true }));
 }

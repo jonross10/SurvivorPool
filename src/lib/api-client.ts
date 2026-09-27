@@ -9,21 +9,21 @@ function send(url: string, method: string, attributes: Record<string, unknown>, 
 }
 
 export function recordPick(entry: string, week: number, team: string, winProb: number): Promise<Response> {
-  return send("/api/pick", "POST", { entry, week, team, winProb }, "pick");
+  return send("/api/picks", "POST", { entry, week, team, winProb }, "pick");
 }
 
 export function removePick(entry: string, week: number): Promise<Response> {
-  return send("/api/pick", "DELETE", { entry, week }, "pick");
+  return send("/api/picks", "DELETE", { entry, week }, "pick");
 }
 
 export function setPickOverride(
   entry: string, week: number, outcome: "survived" | "out" | "revived",
 ): Promise<Response> {
-  return send("/api/pick-override", "POST", { entry, week, outcome }, "pick-override");
+  return send("/api/pick-overrides", "POST", { entry, week, outcome }, "pick-override");
 }
 
 export function clearPickOverride(entry: string, week: number): Promise<Response> {
-  return send("/api/pick-override", "DELETE", { entry, week });
+  return send("/api/pick-overrides", "DELETE", { entry, week });
 }
 
 export function updateEntrySettings(id: string, settings: EntrySettings): Promise<Response> {
