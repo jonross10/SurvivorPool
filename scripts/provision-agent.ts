@@ -85,6 +85,89 @@ async function main() {
     },
   });
 
+  // Entry management. Users refer to entries by name; update/delete need the id,
+  // which the agent resolves from get_entries. Same auth note as make_pick applies.
+  const createEntryTool = await post("/agent-tools", {
+    type: "agent-tool",
+    attributes: {
+      name: "create_entry",
+      public_description: "Add a new survivor-pool entry by name, optionally with settings (pool, ties_survive, min_win_chance). Confirm with the user first.",
+      details: {
+        type: "custom",
+        protocol: "https",
+        request_template: {
+          url_template: `${APP}/api/entries`,
+          http_method: "POST",
+          request_timeout_seconds: 10,
+          headers: [{ name: "content-type", value: "application/vnd.api+json" }],
+          // Blank optional settings are dropped server-side (normalizeSettings).
+          body_template: {
+            data: {
+              type: "entry",
+              attributes: {
+                name: "{{name}}",
+                settings: { pool: "{{pool}}", ties_survive: "{{ties_survive}}", min_win_chance: "{{min_win_chance}}" },
+              },
+            },
+          },
+        },
+        variables: [
+          { name: "name", type: "string", required: true, description: "New entry name", source: "dynamic" },
+          { name: "pool", type: "string", required: false, description: "Coordination pool name (default main)", source: "dynamic" },
+          { name: "ties_survive", type: "string", required: false, description: "'true' or 'false' — whether a tie keeps the entry alive", source: "dynamic" },
+          { name: "min_win_chance", type: "string", required: false, description: "Safety floor 0-0.95, e.g. 0.6", source: "dynamic" },
+        ],
+        timeout_seconds: 10,
+        max_retries: 0,
+      },
+    },
+  });
+  const updateEntryTool = await post("/agent-tools", {
+    type: "agent-tool",
+    attributes: {
+      name: "update_entry",
+      public_description: "Rename an entry. Pass the entry id (from get_entries) and the new name. Confirm first.",
+      details: {
+        type: "custom",
+        protocol: "https",
+        request_template: {
+          url_template: `${APP}/api/entries/{{id}}`,
+          http_method: "PATCH",
+          request_timeout_seconds: 10,
+          headers: [{ name: "content-type", value: "application/vnd.api+json" }],
+          body_template: { data: { type: "entry", attributes: { name: "{{name}}" } } },
+        },
+        variables: [
+          { name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" },
+          { name: "name", type: "string", required: true, description: "New entry name", source: "dynamic" },
+        ],
+        timeout_seconds: 10,
+        max_retries: 0,
+      },
+    },
+  });
+  const deleteEntryTool = await post("/agent-tools", {
+    type: "agent-tool",
+    attributes: {
+      name: "delete_entry",
+      public_description: "Delete an entry by id (from get_entries). Destructive — always confirm the exact entry with the user first.",
+      details: {
+        type: "custom",
+        protocol: "https",
+        request_template: {
+          url_template: `${APP}/api/entries/{{id}}`,
+          http_method: "DELETE",
+          request_timeout_seconds: 10,
+        },
+        variables: [
+          { name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" },
+        ],
+        timeout_seconds: 10,
+        max_retries: 0,
+      },
+    },
+  });
+
   console.log("Creating knowledge…");
   const knowledge: [string, string][] = [
     ["Survivor rules", "In an NFL survivor pool, each week you pick one team to win. If your team loses (or ties, unless the entry's settings say ties survive), you're eliminated. You cannot pick the same team twice in a season."],
@@ -96,14 +179,28 @@ async function main() {
   }
 
   console.log("Creating skill…");
-  const toolIds = [getEntries.id, getMatchups.id, makePick.id].filter(Boolean).map((id) => ({ type: "agent-tool", id }));
+  const toolIds = [
+    getEntries.id, getMatchups.id, makePick.id,
+    createEntryTool.id, updateEntryTool.id, deleteEntryTool.id,
+  ].filter(Boolean).map((id) => ({ type: "agent-tool", id }));
   await post("/agent-skills", {
     type: "agent-skill",
     attributes: {
       display_name: "Survivor Strategy",
       description: "Answers NFL survivor pool strategy questions, recommends and makes picks. Use for anything about entries, picks, matchups, odds, or the season plan.",
       instructions:
-        "You are a sharp NFL survivor-pool strategist for this app. Always ground answers in live data: call get_entries and get_matchups (and use the projection) before giving numbers — never guess. Explain trade-offs (safety vs saving strong teams for later, diversification across the pool). You may record a pick with make_pick, but ONLY after stating the exact entry, week, and team and getting the user's explicit 'yes' in this chat. Be concise.",
+        "You are a sharp NFL survivor-pool strategist for this app. Always ground answers in live data: " +
+        "call get_entries and get_matchups (and use the projection) before giving numbers — never guess.\n\n" +
+        "CURRENT WEEK: get_entries returns meta.currentWeek — that integer is THE current NFL week. When the user " +
+        "says \"this week\" or \"now\", they mean meta.currentWeek. Do NOT advance to a later week on your own. If an " +
+        "entry has already locked a pick for the current week (currentPick is set), say so plainly — e.g. \"Archie " +
+        "already has KC locked in for Week 3\" — and only discuss a future week if the user explicitly asks about one.\n\n" +
+        "ENTRY MANAGEMENT: you can create_entry (by name), update_entry (rename), and delete_entry. update_entry and " +
+        "delete_entry need the entry id — resolve it from get_entries first. Confirm before create/rename, and " +
+        "ALWAYS confirm the exact entry name before delete_entry (it is destructive and removes the entry's picks).\n\n" +
+        "Explain trade-offs (safety vs saving strong teams for later, diversification across the pool). You may record " +
+        "a pick with make_pick, but ONLY after stating the exact entry, week, and team and getting the user's explicit " +
+        "'yes' in this chat. Be concise. Use markdown (bold, bullet lists, tables) to format answers clearly.",
       status: "draft",
       handoff: "none",
     },

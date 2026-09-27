@@ -12,14 +12,14 @@ async function fetchEntries(): Promise<Entry[]> {
 /** Cached list of entries; invalidated by createEntry/deleteEntry via revalidateTag. */
 export const getEntries = unstable_cache(fetchEntries, ["entries"], { tags: [TAG] });
 
-export async function createEntry(name: string): Promise<Entry> {
+export async function createEntry(name: string, settings: EntrySettings = {}): Promise<Entry> {
   const clean = validateEntryName(name);
   const dup = (await sql`SELECT 1 FROM entries WHERE lower(name) = lower(${clean})`) as unknown[];
   if (dup.length > 0) throw new DuplicateNameError(`An entry named "${clean}" already exists`);
   const id = crypto.randomUUID();
-  await sql`INSERT INTO entries (id, name) VALUES (${id}, ${clean})`;
+  await sql`INSERT INTO entries (id, name, settings) VALUES (${id}, ${clean}, ${JSON.stringify(settings)}::jsonb)`;
   revalidateTag(TAG);
-  return { id, name: clean, settings: {} };
+  return { id, name: clean, settings };
 }
 
 export async function deleteEntry(id: string): Promise<boolean> {
@@ -27,6 +27,15 @@ export async function deleteEntry(id: string): Promise<boolean> {
   const rows = (await sql`DELETE FROM entries WHERE id = ${id} RETURNING id`) as unknown[];
   revalidateTag(TAG);
   return rows.length > 0;
+}
+
+export async function renameEntry(id: string, name: string): Promise<void> {
+  const clean = validateEntryName(name);
+  // Reject a name already taken by a *different* entry (case-insensitive).
+  const dup = (await sql`SELECT 1 FROM entries WHERE lower(name) = lower(${clean}) AND id <> ${id}`) as unknown[];
+  if (dup.length > 0) throw new DuplicateNameError(`An entry named "${clean}" already exists`);
+  await sql`UPDATE entries SET name = ${clean} WHERE id = ${id}`;
+  revalidateTag(TAG);
 }
 
 export async function updateSettings(id: string, settings: EntrySettings): Promise<void> {

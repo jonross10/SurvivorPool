@@ -1,5 +1,6 @@
 import { createEntry } from "@/lib/db/entries-repo";
-import { EmptyNameError, DuplicateNameError } from "@/lib/entries-util";
+import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
+import { requireAgentWrite } from "@/lib/agent-auth";
 import { getCache } from "@/lib/db/cache-repo";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
@@ -24,11 +25,21 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const unauth = requireAgentWrite(req);
+  if (unauth) return unauth;
   const body = await req.json().catch(() => ({}));
-  const name: string = body?.data?.attributes?.name ?? "";
+  const attrs = body?.data?.attributes ?? {};
+  const name: string = attrs.name ?? "";
+  // Settings are optional on create; agents may pass any of pool / ties_survive /
+  // min_win_chance / pick_due (as strings), which we coerce and validate.
+  const settings = normalizeSettings(attrs.settings ?? {});
+  const settingsError = validateSettings(settings);
+  if (settingsError) {
+    return jsonApi(errorDocument([{ status: "400", title: "Invalid settings", detail: settingsError }]), 400);
+  }
   try {
-    const e = await createEntry(name);
-    return jsonApi(document(resource("entry", e.id, { name: e.name })), 201);
+    const e = await createEntry(name, settings);
+    return jsonApi(document(resource("entry", e.id, { name: e.name, settings: e.settings })), 201);
   } catch (err) {
     if (err instanceof EmptyNameError) {
       return jsonApi(errorDocument([{ status: "400", title: "Invalid name", detail: err.message }]), 400);
