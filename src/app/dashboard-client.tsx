@@ -32,8 +32,10 @@ export default function DashboardClient() {
   const ranks = useRanks();
   const modal = usePickModal(load);
 
-  async function load() {
-    setLoading(true);
+  async function load(showSpinner = false) {
+    // Only the first load shows the spinner; later refreshes (after a pick/setting
+    // change) update in place so the dashboard doesn't flash/reload each time.
+    if (showSpinner) setLoading(true);
     const [recDoc, entriesDoc, matchupsDoc] = await Promise.all([
       fetch(`/api/recommendations`).then((r) => r.json()),
       fetch(`/api/entries`).then((r) => r.json()),
@@ -52,7 +54,7 @@ export default function DashboardClient() {
     setWeeks(recDoc.meta?.weeks ?? []);
     setLoading(false);
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { load(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   async function loadFreshness() {
     const doc = await (await fetch("/api/refresh")).json();
