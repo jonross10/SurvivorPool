@@ -48,7 +48,9 @@ export default function EntrySettingsModal({
 }) {
   const [floor, setFloor] = useState(minWinChance);
   const commitFloor = () => { if (floor !== minWinChance) onSetFloor(floor); };
-  const due = pickDue ?? { day: 0, time: "13:00" }; // default Sun 1:00 PM
+  // Buffer pick-due locally so typing stays smooth; commit to the server on blur /
+  // day change rather than on every keystroke (which would fight the input).
+  const [due, setDue] = useState(pickDue ?? { day: 0, time: "13:00" }); // default Sun 1:00 PM
   if (typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -101,7 +103,7 @@ export default function EntrySettingsModal({
             <div className="mt-2 flex items-center gap-2">
               <select
                 value={due.day}
-                onChange={(e) => onSetPickDue({ ...due, day: Number(e.target.value) })}
+                onChange={(e) => { const next = { ...due, day: Number(e.target.value) }; setDue(next); onSetPickDue(next); }}
                 className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
               >
                 {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
@@ -110,7 +112,12 @@ export default function EntrySettingsModal({
               <input
                 type="time"
                 value={due.time}
-                onChange={(e) => e.target.value && onSetPickDue({ ...due, time: e.target.value })}
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  const next = { ...due, time: e.target.value };
+                  setDue(next);        // local state → smooth typing
+                  onSetPickDue(next);  // commit the fresh value (no stale-closure)
+                }}
                 className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
               />
             </div>
