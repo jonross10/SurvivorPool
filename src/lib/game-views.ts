@@ -1,5 +1,5 @@
 import type { Matchup, TeamStrength, MoneylineGame, GameView } from "./types";
-import { devigTwoWay } from "./odds";
+import { devigTwoWay, isValidAmericanOdds } from "./odds";
 import { projectWinProb } from "./projection";
 
 export function buildGameViews(
@@ -16,7 +16,9 @@ export function buildGameViews(
   for (const g of schedule) {
     if (g.week !== week) continue;
     const posted = oddsMap.get(key(g.week, g.home, g.away));
-    if (posted) {
+    // Only trust posted odds when both moneylines are plausible. Corrupt values
+    // (e.g. -1) would otherwise produce nonsense probabilities like 98%/2%.
+    if (posted && isValidAmericanOdds(posted.homeOdds) && isValidAmericanOdds(posted.awayOdds)) {
       const { favProb, dogProb } = devigTwoWay(posted.homeOdds, posted.awayOdds);
       out.push({
         week: g.week, home: g.home, away: g.away, kickoff: g.kickoff,
