@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -23,7 +24,10 @@ export default function Nav() {
   return (
     <nav className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/" className="font-bold tracking-tight transition-opacity hover:opacity-70">🏈 Survivor</Link>
+        <Link href="/" className="flex items-center gap-2 font-bold tracking-tight transition-opacity hover:opacity-70">
+          <Image src="/logo.png" alt="" width={24} height={24} className="rounded" />
+          Survivor Assistant
+        </Link>
 
         {/* Desktop links */}
         <div className="hidden items-center gap-1 sm:flex">
