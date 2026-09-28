@@ -152,19 +152,19 @@ export default function DashboardClient() {
               autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addEntry()}
               placeholder="Name"
-              className="w-28 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
+              className="field w-28"
             />
-            <button onClick={addEntry} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-bold text-accent-fg hover:opacity-90">Add</button>
+            <button onClick={addEntry} className="btn-primary">Add</button>
             <button onClick={() => { setAdding(false); setNewName(""); }} className="px-1 text-sm text-muted hover:text-fg">✕</button>
           </span>
         ) : (
-          <button onClick={() => setAdding(true)} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-fg transition-colors hover:bg-surface-2">+ Add entry</button>
+          <button onClick={() => setAdding(true)} className="btn-ghost">+ Add entry</button>
         )}
         <button
           onClick={refreshStats}
           disabled={refreshing || !freshness.canRefreshNow}
           title={freshness.canRefreshNow ? "Fetch the latest odds & rankings" : `Available again in ${Math.ceil(freshness.remainingMs / 60000)}m`}
-          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-fg transition-colors hover:bg-surface-2 disabled:opacity-40"
+          className="btn-ghost"
         >
           {refreshing ? "Refreshing…" : "↻ Refresh stats"}
         </button>

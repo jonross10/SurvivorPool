@@ -134,13 +134,9 @@ export default function AssistantChat() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="Ask the assistant…"
-          className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
+          className="field flex-1"
         />
-        <button
-          onClick={send}
-          disabled={busy}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
-        >
+        <button onClick={send} disabled={busy} className="btn-primary">
           Send
         </button>
       </div>

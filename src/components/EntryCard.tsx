@@ -147,7 +147,7 @@ export default function EntryCard({
           <button
             onClick={() => onConfirm(r)}
             disabled={!r.pick}
-            className="mt-3 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="btn-primary mt-3"
           >
             Confirm pick
           </button>

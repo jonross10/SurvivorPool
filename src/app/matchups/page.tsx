@@ -5,9 +5,11 @@ import { fetchAliveEntryNames, recordPick, removePick, errorDetail } from "@/lib
 import type { GameView, Recommendation } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import GameCard from "@/components/GameCard";
+import ConfirmPickModal from "@/components/ConfirmPickModal";
 import { useRanks } from "@/components/use-ranks";
 
 interface EntryState { name: string; usedTeams: string[]; picksByWeek: Record<number, string> }
+interface Pending { team: string; week: number; prob: number }
 
 function fmtDay(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
@@ -21,6 +23,8 @@ export default function MatchupsPage() {
   const [entry, setEntry] = useState("");
   const [states, setStates] = useState<EntryState[]>([]);
   const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const ranks = useRanks();
 
   useEffect(() => { fetchAliveEntryNames().then(setEntryNames); }, []);
@@ -49,10 +53,21 @@ export default function MatchupsPage() {
   const weekPick = week !== null ? entryState?.picksByWeek?.[week] : undefined;
   const suggested = recs.find((r) => r.entry === entry && r.week === week)?.pick ?? null;
 
-  async function pick(team: string) {
+  // Clicking a team opens a confirm modal instead of picking immediately, so an
+  // accidental tap can't record (or swap) a pick.
+  function pick(team: string) {
     if (week === null || used.has(team)) return;
-    const res = await recordPick(entry, week, team, 0);
-    if (!res.ok) alert(await errorDetail(res, "Pick failed"));
+    const g = games.find((x) => x.home === team || x.away === team);
+    const prob = g ? (g.home === team ? g.homeProb : g.awayProb) : 0;
+    setError(null);
+    setPending({ team, week, prob });
+  }
+  async function confirmPick() {
+    if (!pending) return;
+    const res = await recordPick(entry, pending.week, pending.team, pending.prob);
+    if (!res.ok) { setError(await errorDetail(res, "Pick failed")); return; }
+    setPending(null);
+    setError(null);
     await loadState();
   }
   async function undo() {
@@ -72,10 +87,7 @@ export default function MatchupsPage() {
     byDay.get(d)!.push(g);
   }
 
-  const tab = (active: boolean) =>
-    `shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-      active ? "bg-accent text-accent-fg" : "bg-surface text-muted hover:bg-surface-2 hover:text-fg"
-    }`;
+  const tab = (active: boolean) => `pill ${active ? "pill-active" : ""}`;
 
   return (
     <main className="mx-auto max-w-4xl px-3 py-5">
@@ -121,6 +133,19 @@ export default function MatchupsPage() {
           </div>
         </section>
       ))}
+
+      {pending && (
+        <ConfirmPickModal
+          entry={entry}
+          team={pending.team}
+          week={pending.week}
+          prob={pending.prob}
+          replaces={weekPick}
+          error={error}
+          onConfirm={confirmPick}
+          onCancel={() => { setPending(null); setError(null); }}
+        />
+      )}
     </main>
   );
 }

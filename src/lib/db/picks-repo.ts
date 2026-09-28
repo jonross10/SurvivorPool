@@ -22,10 +22,14 @@ export async function recordPick(
   team: TeamAbbr,
   winProb: number,
 ): Promise<void> {
-  // Throws on UNIQUE violation (team reused, or week already picked).
+  // Upsert on (entry_id, week): picking a team for a week that already has a
+  // pick swaps it. The separate UNIQUE (entry_id, team) still throws if the team
+  // is already used in another week (reuse is not allowed).
   await sql`
     INSERT INTO picks (entry_id, week, team, win_prob_at_pick)
     VALUES (${entryId}, ${week}, ${team}, ${winProb})
+    ON CONFLICT (entry_id, week)
+    DO UPDATE SET team = EXCLUDED.team, win_prob_at_pick = EXCLUDED.win_prob_at_pick
   `;
 }
 

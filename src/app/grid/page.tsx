@@ -4,7 +4,7 @@ import type { WinProb } from "@/lib/types";
 import { unwrapMany } from "@/lib/jsonapi-client";
 import { fetchAliveEntryNames, recordPick, errorDetail } from "@/lib/api-client";
 import TeamRow from "@/components/TeamRow";
-import TeamLogo from "@/components/TeamLogo";
+import ConfirmPickModal from "@/components/ConfirmPickModal";
 import { useRanks } from "@/components/use-ranks";
 
 function color(p: number): string {
@@ -112,38 +112,15 @@ export default function GridPage() {
       </div>
 
       {pending && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => { setPending(null); setError(null); }}
-        >
-          <div className="w-80 rounded-xl border border-line bg-surface p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-display text-lg uppercase tracking-wide text-fg">Confirm pick</h3>
-            <div className="mt-3 flex items-center gap-3">
-              <TeamLogo abbr={pending.team} size={36} />
-              <div>
-                <div className="font-display uppercase tracking-wide text-fg">{pending.team} — Week {pending.week}</div>
-                <div className="text-sm text-muted">
-                  {Math.round(pending.prob * 100)}% to win · for {entry}
-                </div>
-              </div>
-            </div>
-            {error && <p className="mt-3 text-sm text-danger">{error}</p>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                onClick={() => { setPending(null); setError(null); }}
-                className="rounded-lg border border-line px-3 py-1.5 text-sm text-fg transition-colors hover:bg-surface-2"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmPick}
-                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-bold text-accent-fg transition-opacity hover:opacity-90"
-              >
-                Confirm pick
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmPickModal
+          entry={entry}
+          team={pending.team}
+          week={pending.week}
+          prob={pending.prob}
+          error={error}
+          onConfirm={confirmPick}
+          onCancel={() => { setPending(null); setError(null); }}
+        />
       )}
     </main>
   );

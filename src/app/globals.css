@@ -45,6 +45,32 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* Reusable component classes for patterns repeated across the app. */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+  .field {
+    @apply rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg
+           placeholder:text-muted focus:border-accent focus:outline-none;
+  }
+  .btn-primary {
+    @apply rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-fg
+           transition-opacity hover:opacity-90 disabled:opacity-40;
+  }
+  .btn-ghost {
+    @apply rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold
+           text-fg transition-colors hover:bg-surface-2 disabled:opacity-40;
+  }
+  .pill {
+    @apply shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors
+           bg-surface text-muted hover:bg-surface-2 hover:text-fg;
+  }
+  .pill-active {
+    @apply bg-accent text-accent-fg hover:bg-accent hover:text-accent-fg;
+  }
+}
+
 /* Slim dark scrollbars for the horizontal timeline/table strips. */
 * {
   scrollbar-width: thin;

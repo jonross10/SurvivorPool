@@ -32,15 +32,7 @@ export default function Nav() {
           {LINKS.map((l) => {
             const active = isActive(l.href);
             return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                  active
-                    ? "bg-accent text-accent-fg"
-                    : "bg-surface text-muted hover:bg-surface-2 hover:text-fg"
-                }`}
-              >
+              <Link key={l.href} href={l.href} className={`pill ${active ? "pill-active" : ""}`}>
                 {l.label}
               </Link>
             );

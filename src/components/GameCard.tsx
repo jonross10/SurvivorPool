@@ -35,7 +35,7 @@ export default function GameCard({
     const isLoser = completed && result!.winner !== null && result!.winner !== team;
 
     const stateClass = isUsed
-      ? "bg-surface-2 text-muted line-through decoration-muted/60"
+      ? "bg-surface-2 text-muted opacity-60"
       : isWinner
       ? "bg-success-soft"
       : isLoser
@@ -59,6 +59,7 @@ export default function GameCard({
           )}
           {isPick && <span className="text-xs text-success">✓</span>}
           {isSuggested && !isPick && !completed && !live && <span className="text-xs text-info">★</span>}
+          {isUsed && <span className="rounded bg-surface px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted">used</span>}
         </span>
         {completed || live ? (
           <span

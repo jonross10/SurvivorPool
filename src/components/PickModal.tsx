@@ -1,3 +1,4 @@
+import Modal from "./Modal";
 import TeamLogo from "./TeamLogo";
 import WinProbPill from "./WinProbPill";
 import type { WinProb } from "@/lib/types";
@@ -23,11 +24,7 @@ export default function PickModal({
   const weekTeams = wps.filter((w) => w.week === week).sort((a, b) => b.prob - a.prob);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="flex max-h-[80vh] w-96 flex-col rounded-2xl border border-line bg-surface p-5 text-fg shadow-card"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose} className="flex max-h-[80vh] w-96 flex-col">
         <div className="flex items-center justify-between">
           <h3 className="font-display text-xl uppercase tracking-wide">{entry} — Week {week}</h3>
           <button onClick={onClose} className="text-muted transition-colors hover:text-fg">✕</button>
@@ -94,7 +91,6 @@ export default function PickModal({
             ))
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

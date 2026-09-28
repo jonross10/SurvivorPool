@@ -54,7 +54,7 @@ export default function EntrySettingsModal({
   if (typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-80 rounded-2xl border border-line bg-surface p-5 text-fg shadow-card" onClick={(e) => e.stopPropagation()}>
+      <div className="card w-80 p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-display text-xl uppercase tracking-wide">Entry settings — {entryName}</h3>
           <button onClick={onClose} className="text-muted transition-colors hover:text-fg">✕</button>
