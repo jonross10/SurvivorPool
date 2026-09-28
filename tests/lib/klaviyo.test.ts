@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { extractAgentMessages } from "@/lib/klaviyo";
+import { extractAgentMessages, frameForRouting } from "@/lib/klaviyo";
+
+describe("frameForRouting", () => {
+  it("prepends a survivor-pool context tag so routing prefers our skill", () => {
+    expect(frameForRouting("hey")).toBe("(NFL survivor pool assistant) hey");
+    expect(frameForRouting("what should I do?")).toBe("(NFL survivor pool assistant) what should I do?");
+  });
+});
 
 describe("extractAgentMessages", () => {
   it("returns agent message contents in order", () => {

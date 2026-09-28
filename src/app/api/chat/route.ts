@@ -1,4 +1,4 @@
-import { createConversation, createResponse, extractAgentMessages } from "@/lib/klaviyo";
+import { createConversation, createResponse, extractAgentMessages, frameForRouting } from "@/lib/klaviyo";
 import { errorDocument, jsonApi } from "@/lib/jsonapi";
 
 export async function POST(req: Request) {
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   }
   try {
     if (!conversationId) conversationId = await createConversation();
-    const events = await createResponse(conversationId, message);
+    const events = await createResponse(conversationId, frameForRouting(message));
     return jsonApi({ conversationId, messages: extractAgentMessages(events) });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);

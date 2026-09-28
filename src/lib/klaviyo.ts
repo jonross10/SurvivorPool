@@ -15,6 +15,16 @@ export function extractAgentMessages(events: AgentEvent[] | undefined): string[]
     .map((e) => e.content as string);
 }
 
+/**
+ * Prepend a survivor-pool context tag to the message we send Klaviyo so its skill
+ * router picks our Survivor Strategy skill instead of the prebuilt e-commerce
+ * "General Q&A" (which can't be disabled or edited). The UI still shows the user's
+ * original text — only the routed copy is tagged.
+ */
+export function frameForRouting(message: string): string {
+  return `(NFL survivor pool assistant) ${message}`;
+}
+
 function headers(): Record<string, string> {
   const key = process.env.KLAVIYO_API_KEY;
   if (!key) throw new Error("KLAVIYO_API_KEY is not set");
