@@ -14,7 +14,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${on ? "bg-emerald-600" : "bg-slate-300"}`}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${on ? "bg-accent" : "bg-surface-2"}`}
     >
       <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${on ? "translate-x-5" : "translate-x-0.5"}`} />
     </button>
@@ -53,36 +53,36 @@ export default function EntrySettingsModal({
   const [due, setDue] = useState(pickDue ?? { day: 0, time: "13:00" }); // default Sun 1:00 PM
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-80 rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-80 rounded-2xl border border-line bg-surface p-5 text-fg shadow-card" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">Entry settings — {entryName}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+          <h3 className="font-display text-xl uppercase tracking-wide">Entry settings — {entryName}</h3>
+          <button onClick={onClose} className="text-muted transition-colors hover:text-fg">✕</button>
         </div>
 
         <div className="mt-4 space-y-4">
           <label className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-medium text-slate-700">Pool</span>
+            <span className="font-medium text-fg">Pool</span>
             <input
               defaultValue={pool}
               onBlur={(e) => { const v = e.target.value.trim() || "main"; if (v !== pool) onSetPool(v); }}
               title="Entries in the same pool are planned together"
-              className="w-40 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+              className="w-40 rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
             />
           </label>
 
           <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-medium text-slate-700">
+            <span className="font-medium text-fg">
               Tie counts as surviving
-              <span className="block text-xs font-normal text-slate-400">Off = a tie eliminates this entry</span>
+              <span className="block text-xs font-normal text-muted">Off = a tie eliminates this entry</span>
             </span>
             <Toggle on={tiesSurvive} onChange={onToggleTies} />
           </div>
 
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-700">Min. win chance</span>
-              <span className="font-semibold text-slate-700">{Math.round(floor * 100)}%</span>
+              <span className="font-medium text-fg">Min. win chance</span>
+              <span className="font-semibold text-fg">{Math.round(floor * 100)}%</span>
             </div>
             <input
               type="range" min={0} max={0.95} step={0.05}
@@ -90,25 +90,25 @@ export default function EntrySettingsModal({
               onChange={(e) => setFloor(Number(e.target.value))}
               onPointerUp={commitFloor}
               onBlur={commitFloor}
-              className="mt-1 w-full accent-emerald-600"
+              className="mt-1 w-full accent-accent"
             />
-            <p className="text-xs text-slate-400">Won&apos;t suggest a team below this win chance for the current week.</p>
+            <p className="text-xs text-muted">Won&apos;t suggest a team below this win chance for the current week.</p>
           </div>
 
           <div>
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-700">Pick due by</span>
-              <span className="text-xs text-slate-400">{DAYS[due.day]} at {label12h(due.time)}</span>
+              <span className="font-medium text-fg">Pick due by</span>
+              <span className="text-xs text-muted">{DAYS[due.day]} at {label12h(due.time)}</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <select
                 value={due.day}
                 onChange={(e) => { const next = { ...due, day: Number(e.target.value) }; setDue(next); onSetPickDue(next); }}
-                className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none"
               >
                 {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
-              <span className="text-sm text-slate-400">at</span>
+              <span className="text-sm text-muted">at</span>
               <input
                 type="time"
                 value={due.time}
@@ -118,17 +118,17 @@ export default function EntrySettingsModal({
                   setDue(next);        // local state → smooth typing
                   onSetPickDue(next);  // commit the fresh value (no stale-closure)
                 }}
-                className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none"
               />
             </div>
           </div>
         </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-          <button onClick={onDelete} className="text-sm font-medium text-red-600 hover:text-red-700">
+        <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+          <button onClick={onDelete} className="text-sm font-bold text-danger transition-colors hover:opacity-80">
             Delete entry
           </button>
-          <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700">
+          <button onClick={onClose} className="rounded-lg border border-line px-4 py-2 text-sm text-fg transition-colors hover:bg-surface-2">
             Close
           </button>
         </div>

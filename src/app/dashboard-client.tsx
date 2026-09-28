@@ -134,52 +134,56 @@ export default function DashboardClient() {
   const toPick = alive.length - pickedThisWeek.length;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Survivor Assistant <span className="text-slate-400">— Week {currentWk ?? "?"}</span>
-        </h1>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Updated {timeAgo(freshness.fetchedAt)}</span>
-          {adding ? (
-            <span className="flex items-center gap-1">
-              <input
-                autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addEntry()}
-                placeholder="Name"
-                className="w-28 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-              />
-              <button onClick={addEntry} className="rounded-lg bg-emerald-600 px-2 py-1 text-sm font-medium text-white hover:bg-emerald-700">Add</button>
-              <button onClick={() => { setAdding(false); setNewName(""); }} className="px-1 text-sm text-slate-500">✕</button>
-            </span>
-          ) : (
-            <button onClick={() => setAdding(true)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">+ Add entry</button>
-          )}
-          <button
-            onClick={refreshStats}
-            disabled={refreshing || !freshness.canRefreshNow}
-            title={freshness.canRefreshNow ? "Fetch the latest odds & rankings" : `Available again in ${Math.ceil(freshness.remainingMs / 60000)}m`}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-40"
-          >
-            {refreshing ? "Refreshing…" : "↻ Refresh stats"}
-          </button>
+    <main className="mx-auto max-w-4xl px-3 py-5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted">Survivor Assistant</p>
+          <h1 className="font-display text-4xl uppercase leading-none tracking-wide">
+            Week <span className="text-accent">{currentWk ?? "?"}</span>
+          </h1>
         </div>
+        <span className="pb-1 text-xs text-muted">Updated {timeAgo(freshness.fetchedAt)}</span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {adding ? (
+          <span className="flex items-center gap-1">
+            <input
+              autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addEntry()}
+              placeholder="Name"
+              className="w-28 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
+            />
+            <button onClick={addEntry} className="rounded-lg bg-accent px-3 py-1.5 text-sm font-bold text-accent-fg hover:opacity-90">Add</button>
+            <button onClick={() => { setAdding(false); setNewName(""); }} className="px-1 text-sm text-muted hover:text-fg">✕</button>
+          </span>
+        ) : (
+          <button onClick={() => setAdding(true)} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-fg transition-colors hover:bg-surface-2">+ Add entry</button>
+        )}
+        <button
+          onClick={refreshStats}
+          disabled={refreshing || !freshness.canRefreshNow}
+          title={freshness.canRefreshNow ? "Fetch the latest odds & rankings" : `Available again in ${Math.ceil(freshness.remainingMs / 60000)}m`}
+          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-fg transition-colors hover:bg-surface-2 disabled:opacity-40"
+        >
+          {refreshing ? "Refreshing…" : "↻ Refresh stats"}
+        </button>
       </div>
 
       {recs.length > 0 && (
-        <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          <strong className="text-slate-900">{alive.length}/{recs.length}</strong> entries still alive
+        <div className="mt-3 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-muted">
+          <strong className="font-display text-base text-success">{alive.length}/{recs.length}</strong> entries still alive
           {alive.length > 0 && currentWk !== null && (
             <>
               {" · "}
-              <strong className="text-slate-900">{pickedThisWeek.length}/{alive.length}</strong> picked Week {currentWk}
-              {toPick > 0 && <span className="text-amber-600"> · {toPick} still to pick</span>}
+              <strong className="text-fg">{pickedThisWeek.length}/{alive.length}</strong> picked Week {currentWk}
+              {toPick > 0 && <span className="text-warn"> · {toPick} still to pick</span>}
             </>
           )}
         </div>
       )}
 
-      {loading && <p className="mt-4 text-slate-400">Loading…</p>}
+      {loading && <p className="mt-4 text-muted">Loading…</p>}
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {recs.map((r) => (

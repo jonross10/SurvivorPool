@@ -12,9 +12,9 @@ export default function TeamRow({
   return (
     <span className="inline-flex items-center gap-2">
       <TeamLogo abbr={abbr} size={size} />
-      <span className="font-semibold">{abbr}</span>
+      <span className="font-display uppercase tracking-wide">{abbr}</span>
       {rank !== undefined && (
-        <span className="text-[10px] font-medium text-slate-400" title="Power ranking">
+        <span className="text-[10px] font-medium text-muted" title="Power ranking">
           #{rank}
         </span>
       )}

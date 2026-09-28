@@ -21,11 +21,11 @@ export type Rec = Recommendation & {
 
 /** Timeline cell color: green = win, red = loss, amber = live, blue = current week (pending). */
 function cellClasses(outcome: string | undefined, isCurrent: boolean, eliminated: boolean): string {
-  if (outcome === "won" || outcome === "tie") return "border-emerald-400 bg-emerald-50";
-  if (outcome === "lost") return "border-red-400 bg-red-50";
-  if (outcome === "live") return "border-amber-400 bg-amber-50";
-  if (isCurrent && !eliminated) return "border-blue-300 bg-blue-50";
-  return "border-slate-100";
+  if (outcome === "won" || outcome === "tie") return "border-success/50 bg-success-soft";
+  if (outcome === "lost") return "border-danger/50 bg-danger-soft";
+  if (outcome === "live") return "border-warn/50 bg-warn-soft";
+  if (isCurrent && !eliminated) return "border-info/50 bg-info-soft";
+  return "border-line bg-surface-2/40";
 }
 
 export default function EntryCard({
@@ -52,16 +52,16 @@ export default function EntryCard({
 
   return (
     <div
-      className={`rounded-xl border bg-white p-4 shadow-sm ${
-        r.eliminated ? "border-red-300 bg-red-50/40 opacity-80" : "border-slate-200"
+      className={`rounded-2xl border p-4 shadow-card ${
+        r.eliminated ? "border-danger/40 bg-danger-soft opacity-90" : "border-line bg-surface"
       }`}
     >
       <div className="flex items-center justify-between">
-        <h2 className={`text-lg font-bold ${r.eliminated ? "text-red-700" : ""}`}>{r.entry}</h2>
+        <h2 className={`font-display text-xl uppercase tracking-wide ${r.eliminated ? "text-danger" : "text-fg"}`}>{r.entry}</h2>
         <button
           onClick={() => setSettingsOpen(true)}
           title="Entry settings"
-          className="text-slate-300 transition-colors hover:text-slate-600"
+          className="text-muted transition-colors hover:text-fg"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
@@ -87,14 +87,14 @@ export default function EntryCard({
 
       {r.eliminated ? (
         <div className="mt-2 flex items-center gap-3">
-          <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+          <span className="inline-block rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-semibold text-danger">
             Eliminated{r.eliminatedWeek ? ` — Week ${r.eliminatedWeek}` : ""}
           </span>
           {r.eliminatedWeek && (
             <button
               onClick={() => onRevive(r)}
               title="Buy-back: keep the loss on record but mark them back in"
-              className="text-xs font-medium text-emerald-700 underline"
+              className="text-xs font-semibold text-success underline"
             >
               Revive entry
             </button>
@@ -104,12 +104,12 @@ export default function EntryCard({
         <div className="mt-2">
           <div className="flex items-center gap-3">
             <TeamLogo abbr={r.currentPick} size={40} />
-            <span className="text-2xl font-bold">{r.currentPick}</span>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+            <span className="font-display text-3xl uppercase tracking-wide">{r.currentPick}</span>
+            <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-semibold text-success">
               ✓ picked
             </span>
           </div>
-          <p className="mt-2 text-sm text-slate-500">Locked in for Week {r.week}.</p>
+          <p className="mt-2 text-sm text-muted">Locked in for Week {r.week}.</p>
           {(() => {
             const g = gameFor(r.currentPick);
             return g ? (
@@ -118,16 +118,16 @@ export default function EntryCard({
               </div>
             ) : null;
           })()}
-          <button onClick={() => onUndo(r)} className="mt-3 text-sm text-slate-500 underline">
+          <button onClick={() => onUndo(r)} className="mt-3 text-sm text-muted underline hover:text-fg">
             Undo pick
           </button>
         </div>
       ) : (
         <div className="mt-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Suggested</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted">Suggested</p>
           <div className="mt-1 flex items-center gap-3">
             {r.pick && <TeamLogo abbr={r.pick} size={40} />}
-            <span className="text-2xl font-bold">{r.pick ?? "—"}</span>
+            <span className="font-display text-3xl uppercase tracking-wide">{r.pick ?? "—"}</span>
             {r.pick && <WinProbPill prob={r.prob} />}
           </div>
           {(() => {
@@ -138,16 +138,16 @@ export default function EntryCard({
               </div>
             ) : null;
           })()}
-          <p className="mt-2 text-sm text-slate-600">{r.reasoning}</p>
+          <p className="mt-2 text-sm text-muted">{r.reasoning}</p>
           {r.greedyAlt && r.greedyAlt.team !== r.pick && (
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted">
               Greedy alt: {r.greedyAlt.team} ({Math.round(r.greedyAlt.prob * 100)}%)
             </p>
           )}
           <button
             onClick={() => onConfirm(r)}
             disabled={!r.pick}
-            className="mt-3 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
+            className="mt-3 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             Confirm pick
           </button>
@@ -156,8 +156,8 @@ export default function EntryCard({
 
       {/* Season timeline — click a week to pick/swap that entry's team */}
       {weeks.length > 0 && (
-        <div className="mt-4 border-t border-slate-100 pt-3">
-          <div className="flex gap-1 overflow-x-auto pb-1">
+        <div className="mt-4 border-t border-line pt-3">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
             {weeks.map((w) => {
               const team = r.picksByWeek?.[w];
               const isCurrent = w === r.week;
@@ -167,22 +167,22 @@ export default function EntryCard({
                   key={w}
                   onClick={() => onOpenWeek(r, w)}
                   title={rv?.statusDetail || `Pick ${r.entry}'s Week ${w} team`}
-                  className={`flex w-[46px] shrink-0 flex-col items-center rounded-lg border px-1 py-1 transition-colors hover:border-slate-400 hover:bg-slate-50 ${cellClasses(rv?.outcome, isCurrent, !!r.eliminated)}`}
+                  className={`flex w-[52px] shrink-0 flex-col items-center gap-0.5 rounded-xl border px-1 py-1.5 transition-colors hover:border-muted ${cellClasses(rv?.outcome, isCurrent, !!r.eliminated)}`}
                 >
-                  <span className="text-[10px] text-slate-400">W{w}</span>
+                  <span className={`text-[10px] font-semibold ${isCurrent && !r.eliminated ? "text-info" : "text-muted"}`}>W{w}</span>
                   {team ? (
                     <>
-                      <TeamLogo abbr={team} size={20} />
-                      <span className="text-[10px] font-semibold">{team}</span>
+                      <TeamLogo abbr={team} size={22} />
+                      <span className="font-display text-[11px] uppercase tracking-wide">{team}</span>
                       {/* Only show a score once the game has actually played (not 0–0 pre-kickoff). */}
                       {rv && rv.outcome !== "pending" && rv.teamScore != null && rv.oppScore != null && (
-                        <span className="text-[9px] tabular-nums text-slate-500">
+                        <span className="text-[9px] tabular-nums text-muted">
                           {rv.teamScore}–{rv.oppScore}
                         </span>
                       )}
                     </>
                   ) : (
-                    <span className="py-1 text-slate-300">+</span>
+                    <span className="py-1.5 text-lg leading-none text-muted/60">+</span>
                   )}
                 </button>
               );

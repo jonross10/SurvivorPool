@@ -8,7 +8,7 @@ export default function TeamLogo({ abbr, size = 28 }: { abbr: string; size?: num
     return (
       <span
         style={{ width: size, height: size }}
-        className="inline-flex items-center justify-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600"
+        className="inline-flex items-center justify-center rounded-full bg-surface-2 text-[10px] font-bold text-muted"
       >
         {abbr}
       </span>

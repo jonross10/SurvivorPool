@@ -73,28 +73,30 @@ export default function MatchupsPage() {
   }
 
   const tab = (active: boolean) =>
-    `shrink-0 rounded-full px-3 py-1 text-sm transition-colors ${
-      active ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+    `shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+      active ? "bg-accent text-accent-fg" : "bg-surface text-muted hover:bg-surface-2 hover:text-fg"
     }`;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="text-2xl font-bold tracking-tight">Matchups</h1>
+    <main className="mx-auto max-w-4xl px-3 py-5">
+      <h1 className="font-display text-3xl uppercase tracking-wide">
+        Matchups {week !== null && <span className="text-accent">W{week}</span>}
+      </h1>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {entryNames.map((n) => (
           <button key={n} onClick={() => setEntry(n)} className={tab(entry === n)}>{n}</button>
         ))}
         {weekPick && (
-          <span className="ml-auto flex items-center gap-2 text-sm text-slate-500">
+          <span className="ml-auto flex items-center gap-2 text-sm text-muted">
             <TeamLogo abbr={weekPick} size={20} />
-            Week {week} pick: <strong className="text-slate-800">{weekPick}</strong>
-            <button onClick={undo} className="underline">undo</button>
+            Week {week} pick: <strong className="text-fg">{weekPick}</strong>
+            <button onClick={undo} className="text-accent underline">undo</button>
           </span>
         )}
       </div>
 
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+      <div className="mt-3 flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {weeks.map((w) => (
           <button key={w} onClick={() => loadMatchups(w)} className={tab(w === week)}>W{w}</button>
         ))}
@@ -102,7 +104,7 @@ export default function MatchupsPage() {
 
       {[...byDay.entries()].map(([day, gs]) => (
         <section key={day} className="mt-6">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{day}</h3>
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">{day}</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {gs.map((g) => (
               <GameCard

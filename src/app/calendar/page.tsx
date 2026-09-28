@@ -61,15 +61,15 @@ export default function CalendarPage() {
   const used = new Set(states.find((s) => s.name === entry)?.usedTeams ?? []);
 
   return (
-    <main className="mx-auto max-w-none px-4 py-6">
+    <main className="mx-auto max-w-4xl px-3 py-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Season Calendar</h1>
-        <label className="text-sm text-slate-500">
+        <h1 className="font-display text-3xl uppercase tracking-wide">Season Calendar</h1>
+        <label className="text-sm text-muted">
           Dim used teams for{" "}
           <select
             value={entry}
             onChange={(e) => setEntry(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
+            className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
           >
             {["", ...entryNames].map((n) => <option key={n} value={n}>{n || "— none —"}</option>)}
           </select>
@@ -80,11 +80,11 @@ export default function CalendarPage() {
         <table className="border-separate border-spacing-0 text-xs">
           <thead>
             <tr>
-              <th className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
+              <th className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-line bg-surface px-3 py-1 text-left font-semibold text-fg">
                 Team
               </th>
               {weeks.map((w) => (
-                <th key={w} className="min-w-[52px] border-b border-slate-200 px-2 py-1 font-medium text-slate-500">W{w}</th>
+                <th key={w} className="min-w-[52px] border-b border-line px-2 py-1 font-medium text-muted">W{w}</th>
               ))}
             </tr>
           </thead>
@@ -93,23 +93,23 @@ export default function CalendarPage() {
               const dim = used.has(t);
               return (
                 <tr key={t} className={dim ? "opacity-40" : ""}>
-                  <td className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-slate-200 bg-white px-3 py-1">
+                  <td className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-line bg-surface px-3 py-1">
                     <TeamRow abbr={t} size={18} rank={ranks[t]} />
                   </td>
                   {weeks.map((w) => {
                     const c = cell.get(t)?.get(w);
                     const played =
-                      c?.outcome === "won" ? "bg-emerald-100 font-semibold text-emerald-800"
-                      : c?.outcome === "lost" ? "bg-red-100 text-red-700"
-                      : c?.outcome === "tie" ? "bg-amber-50 text-amber-700"
-                      : c?.outcome === "live" ? "bg-amber-100 text-amber-800"
+                      c?.outcome === "won" ? "bg-success-soft font-semibold text-success"
+                      : c?.outcome === "lost" ? "bg-danger-soft text-danger"
+                      : c?.outcome === "tie" ? "bg-warn-soft text-warn"
+                      : c?.outcome === "live" ? "bg-warn-soft text-warn"
                       : null;
-                    const upcoming = c ? (c.home ? "bg-emerald-50" : "bg-slate-50 text-slate-500") : "";
+                    const upcoming = c ? (c.home ? "bg-success-soft" : "bg-surface-2 text-muted") : "";
                     return (
                       <td
                         key={w}
                         title={c?.score ?? undefined}
-                        className={`border-b border-slate-100 px-2 py-1 text-center ${played ?? upcoming}`}
+                        className={`border-b border-line px-2 py-1 text-center ${played ?? upcoming}`}
                       >
                         {c ? (c.home ? c.opp : `@${c.opp}`) : ""}
                       </td>
@@ -121,8 +121,8 @@ export default function CalendarPage() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-slate-400">
-        Played: <span className="text-emerald-700">green = win</span> · <span className="text-red-600">red = loss</span> ·
+      <p className="mt-2 text-xs text-muted">
+        Played: <span className="text-success">green = win</span> · <span className="text-danger">red = loss</span> ·
         {" "}Upcoming: green = home · grey = away · blank = BYE
       </p>
     </main>

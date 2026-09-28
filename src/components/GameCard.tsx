@@ -35,35 +35,35 @@ export default function GameCard({
     const isLoser = completed && result!.winner !== null && result!.winner !== team;
 
     const stateClass = isUsed
-      ? "bg-slate-100 text-slate-400"
+      ? "bg-surface-2 text-muted line-through decoration-muted/60"
       : isWinner
-      ? "bg-emerald-50"
+      ? "bg-success-soft"
       : isLoser
-      ? "opacity-60"
+      ? "opacity-50"
       : live
-      ? "bg-amber-50"
+      ? "bg-warn-soft"
       : isPick
-      ? "bg-emerald-50"
+      ? "bg-success-soft"
       : isSuggested
-      ? "bg-blue-50"
+      ? "bg-info-soft"
       : "";
-    const hover = interactive && !isUsed ? "cursor-pointer hover:bg-slate-50" : "";
+    const hover = interactive && !isUsed ? "cursor-pointer hover:bg-surface-2" : "";
 
     const inner = (
       <>
         <span className="flex items-center gap-2">
-          <TeamLogo abbr={team} size={20} />
-          <span className={`text-sm font-semibold ${isWinner ? "text-emerald-800" : ""}`}>{team}</span>
+          <TeamLogo abbr={team} size={22} />
+          <span className={`font-display text-base uppercase tracking-wide ${isWinner ? "text-success" : "text-fg"}`}>{team}</span>
           {ranks[team] !== undefined && (
-            <span className="text-[10px] font-medium text-slate-400" title="Power ranking">#{ranks[team]}</span>
+            <span className="text-[10px] font-semibold text-muted" title="Power ranking">#{ranks[team]}</span>
           )}
-          {isPick && <span className="text-xs text-emerald-600">✓</span>}
-          {isSuggested && !isPick && !completed && !live && <span className="text-xs text-blue-500">★</span>}
+          {isPick && <span className="text-xs text-success">✓</span>}
+          {isSuggested && !isPick && !completed && !live && <span className="text-xs text-info">★</span>}
         </span>
         {completed || live ? (
           <span
-            className={`text-base font-bold tabular-nums ${
-              isWinner ? "text-emerald-700" : live ? "text-amber-700" : isLoser ? "text-slate-400" : "text-slate-600"
+            className={`text-lg font-bold tabular-nums ${
+              isWinner ? "text-success" : live ? "text-warn" : isLoser ? "text-muted" : "text-fg"
             }`}
           >
             {teamScore ?? "—"}
@@ -71,9 +71,9 @@ export default function GameCard({
         ) : (
           <span className="flex items-center gap-2">
             <WinProbPill prob={prob} />
-            <span className="w-16 text-right text-xs text-slate-500">
-              {spread !== null && <span className="font-medium">{fmtSpread(spread)}</span>}{" "}
-              <span className="text-slate-400">{fmtOdds(odds)}</span>
+            <span className="w-16 text-right text-xs text-muted">
+              {spread !== null && <span className="font-medium text-fg">{fmtSpread(spread)}</span>}{" "}
+              <span className="text-muted">{fmtOdds(odds)}</span>
             </span>
           </span>
         )}
@@ -92,10 +92,10 @@ export default function GameCard({
 
   const statusTag = completed ? "Final" : live ? `LIVE · ${result!.statusDetail}` : fmtKick(game.kickoff);
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-1.5">
-      <div className="flex items-center justify-between px-2 text-[11px] text-slate-400">
+    <div className="rounded-xl border border-line bg-surface-2/50 p-1.5">
+      <div className="flex items-center justify-between px-2 py-0.5 text-[11px] text-muted">
         <span>{game.away} @ {game.home}</span>
-        <span className={live ? "font-medium text-amber-600" : ""}>{statusTag}</span>
+        <span className={live ? "font-semibold text-warn" : ""}>{statusTag}</span>
       </div>
       {row(game.away, game.awayProb, game.awayOdds, game.homeSpread === null ? null : -game.homeSpread)}
       {row(game.home, game.homeProb, game.homeOdds, game.homeSpread)}

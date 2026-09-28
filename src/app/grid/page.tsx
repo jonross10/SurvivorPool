@@ -55,18 +55,18 @@ export default function GridPage() {
   }
 
   return (
-    <main className="mx-auto max-w-none px-4 py-6">
+    <main className="mx-auto max-w-4xl px-3 py-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Win-Probability Grid</h1>
+        <h1 className="font-display text-3xl uppercase tracking-wide">Win-Probability Grid</h1>
         <select
           value={entry}
           onChange={(e) => setEntry(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
+          className="rounded-lg border border-line bg-surface px-2 py-1 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
         >
           {entryNames.map((n) => <option key={n}>{n}</option>)}
         </select>
       </div>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-muted">
         Teams {entry} still has available, colored by win probability (green = safer). Click a cell to pick that team.
       </p>
 
@@ -74,11 +74,11 @@ export default function GridPage() {
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-slate-200 bg-slate-50 px-3 py-1 text-left font-semibold">
+              <th className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-line bg-surface px-3 py-1 text-left font-semibold text-fg">
                 Team
               </th>
               {weeks.map((w) => (
-                <th key={w} className="min-w-[46px] border-b border-slate-200 px-2 py-1 font-medium text-slate-500">
+                <th key={w} className="min-w-[46px] border-b border-line px-2 py-1 font-medium text-muted">
                   W{w}
                 </th>
               ))}
@@ -87,7 +87,7 @@ export default function GridPage() {
           <tbody>
             {teams.map((t) => (
               <tr key={t}>
-                <td className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-slate-200 bg-white px-3 py-1">
+                <td className="sticky left-0 z-20 w-[116px] min-w-[116px] border-b border-r border-line bg-surface px-3 py-1">
                   <TeamRow abbr={t} size={20} rank={ranks[t]} />
                 </td>
                 {weeks.map((w) => {
@@ -96,10 +96,10 @@ export default function GridPage() {
                     <td
                       key={w}
                       onClick={() => c && setPending({ team: t, week: w, prob: c.prob })}
-                      className={`border-b border-slate-100 px-2 py-1 text-center text-xs ${
-                        c ? "cursor-pointer hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-slate-900" : ""
+                      className={`border-b border-line px-2 py-1 text-center text-xs ${
+                        c ? "cursor-pointer text-black hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent" : ""
                       }`}
-                      style={{ background: c ? color(c.prob) : "#f8fafc" }}
+                      style={{ background: c ? color(c.prob) : "var(--surface-2)" }}
                     >
                       {c ? `${Math.round(c.prob * 100)}%` : ""}
                     </td>
@@ -116,28 +116,28 @@ export default function GridPage() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => { setPending(null); setError(null); }}
         >
-          <div className="w-80 rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold">Confirm pick</h3>
+          <div className="w-80 rounded-xl border border-line bg-surface p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg uppercase tracking-wide text-fg">Confirm pick</h3>
             <div className="mt-3 flex items-center gap-3">
               <TeamLogo abbr={pending.team} size={36} />
               <div>
-                <div className="font-semibold">{pending.team} — Week {pending.week}</div>
-                <div className="text-sm text-slate-500">
+                <div className="font-display uppercase tracking-wide text-fg">{pending.team} — Week {pending.week}</div>
+                <div className="text-sm text-muted">
                   {Math.round(pending.prob * 100)}% to win · for {entry}
                 </div>
               </div>
             </div>
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="mt-3 text-sm text-danger">{error}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => { setPending(null); setError(null); }}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+                className="rounded-lg border border-line px-3 py-1.5 text-sm text-fg transition-colors hover:bg-surface-2"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmPick}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-bold text-accent-fg transition-opacity hover:opacity-90"
               >
                 Confirm pick
               </button>

@@ -93,10 +93,10 @@ export default function AssistantChat() {
   return (
     <div className="flex h-full flex-col">
       {messages.length > 0 && (
-        <div className="flex justify-end border-b border-slate-100 px-3 py-1.5">
+        <div className="flex justify-end border-b border-line px-3 py-1.5">
           <button
             onClick={reset}
-            className="rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-2 hover:text-fg"
           >
             ↺ Reset conversation
           </button>
@@ -104,42 +104,42 @@ export default function AssistantChat() {
       )}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {messages.length === 0 && (
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="mt-6 text-center text-sm text-muted">
             Ask about picks, matchups, or your season plan.
           </p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "user" ? (
-              <span className="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-emerald-600 px-3 py-2 text-sm text-white">
+              <span className="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
                 {m.text}
               </span>
             ) : (
-              <div className="inline-block max-w-[85%] rounded-2xl bg-slate-100 px-3 py-2 text-sm text-slate-800">
+              <div className="inline-block max-w-[85%] rounded-2xl bg-surface-2 px-3 py-2 text-sm text-fg">
                 <div className="assistant-md">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
                 </div>
-                {m.streaming && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-slate-400 align-middle" />}
+                {m.streaming && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-muted align-middle" />}
               </div>
             )}
           </div>
         ))}
-        {busy && <p className="text-sm text-slate-400">Thinking…</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {busy && <p className="text-sm text-muted">Thinking…</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
         <div ref={bottom} />
       </div>
-      <div className="flex items-center gap-2 border-t border-slate-200 p-3">
+      <div className="flex items-center gap-2 border-t border-line p-3">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="Ask the assistant…"
-          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none"
         />
         <button
           onClick={send}
           disabled={busy}
-          className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           Send
         </button>

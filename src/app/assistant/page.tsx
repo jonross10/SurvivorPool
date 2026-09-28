@@ -2,9 +2,9 @@ import AssistantChat from "@/components/AssistantChat";
 
 export default function AssistantPage() {
   return (
-    <main className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col px-4 py-6">
-      <h1 className="mb-3 text-2xl font-bold tracking-tight">Assistant</h1>
-      <div className="flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <main className="mx-auto flex h-[calc(100dvh-9rem)] max-w-3xl flex-col px-3 py-5">
+      <h1 className="mb-3 font-display text-3xl uppercase tracking-wide">Assistant</h1>
+      <div className="flex-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
         <AssistantChat />
       </div>
     </main>

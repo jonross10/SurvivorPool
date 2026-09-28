@@ -23,71 +23,71 @@ export default function PickModal({
   const weekTeams = wps.filter((w) => w.week === week).sort((a, b) => b.prob - a.prob);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-96 flex-col rounded-xl bg-white p-5 shadow-xl"
+        className="flex max-h-[80vh] w-96 flex-col rounded-2xl border border-line bg-surface p-5 text-fg shadow-card"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">{entry} — Week {week}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+          <h3 className="font-display text-xl uppercase tracking-wide">{entry} — Week {week}</h3>
+          <button onClick={onClose} className="text-muted transition-colors hover:text-fg">✕</button>
         </div>
 
         {current && (
-          <div className="mt-3 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2">
+          <div className="mt-3 flex items-center justify-between rounded-lg bg-success-soft px-3 py-2">
             <span className="flex items-center gap-2">
               <TeamLogo abbr={current} size={22} />
-              <span className="font-semibold">{current}</span>
-              <span className="text-xs text-emerald-700">current pick</span>
+              <span className="font-display uppercase">{current}</span>
+              <span className="text-xs text-success">current pick</span>
             </span>
-            <button onClick={() => onClear(entry, week)} className="text-sm text-red-500 underline">
+            <button onClick={() => onClear(entry, week)} className="text-sm text-danger underline">
               Clear
             </button>
           </div>
         )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs">
-          <span className="text-slate-500">Result override:</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-xs">
+          <span className="text-muted">Result override:</span>
           <button
             onClick={() => onOverride(entry, week, "survived")}
-            className="rounded bg-emerald-100 px-2 py-1 font-medium text-emerald-700 hover:bg-emerald-200"
+            className="rounded bg-success-soft px-2 py-1 font-medium text-success transition-colors hover:opacity-80"
           >
             Mark survived
           </button>
           <button
             onClick={() => onOverride(entry, week, "out")}
-            className="rounded bg-red-100 px-2 py-1 font-medium text-red-700 hover:bg-red-200"
+            className="rounded bg-danger-soft px-2 py-1 font-medium text-danger transition-colors hover:opacity-80"
           >
             Mark out
           </button>
           <button
             onClick={() => onClearOverride(entry, week)}
-            className="rounded px-2 py-1 text-slate-500 underline"
+            className="rounded px-2 py-1 text-muted underline"
           >
             Clear
           </button>
         </div>
 
-        <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">Available teams · safest first</p>
+        <p className="mt-3 text-xs uppercase tracking-wide text-muted">Available teams · safest first</p>
         <div className="mt-1 flex-1 overflow-y-auto">
           {wps.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">Loading…</p>
+            <p className="py-4 text-center text-sm text-muted">Loading…</p>
           ) : weekTeams.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">No available teams this week (all on bye or used).</p>
+            <p className="py-4 text-center text-sm text-muted">No available teams this week (all on bye or used).</p>
           ) : (
             weekTeams.map((w) => (
               <button
                 key={w.team}
                 onClick={() => onPick(entry, week, w.team, w.prob)}
-                className="flex w-full items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2 text-left transition-colors hover:bg-surface-2"
               >
                 <span className="flex items-center gap-2">
                   <TeamLogo abbr={w.team} size={22} />
-                  <span className="font-semibold">{w.team}</span>
+                  <span className="font-display uppercase">{w.team}</span>
                   {ranks[w.team] !== undefined && (
-                    <span className="text-[10px] font-medium text-slate-400">#{ranks[w.team]}</span>
+                    <span className="text-[10px] font-medium text-muted">#{ranks[w.team]}</span>
                   )}
-                  <span className="text-xs text-slate-400">{w.home ? "vs" : "@"} {w.opponent}</span>
+                  <span className="text-xs text-muted">{w.home ? "vs" : "@"} {w.opponent}</span>
                 </span>
                 <WinProbPill prob={w.prob} />
               </button>
