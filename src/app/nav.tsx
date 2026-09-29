@@ -96,7 +96,7 @@ export function TopNav() {
   if (path === "/signin") return null;
 
   return (
-    <nav className="shrink-0 border-b border-line bg-bg/80 backdrop-blur-xl">
+    <nav className="shrink-0 border-b border-line bg-bg/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto max-w-4xl px-3">
         <div className="flex items-center justify-between py-2.5">
           <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">

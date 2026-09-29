@@ -10,13 +10,18 @@ const anton = Anton({ subsets: ["latin"], weight: "400", variable: "--font-displ
 export const metadata: Metadata = {
   title: "Survivor Assistant",
   description: "NFL survivor pool picks, win probabilities, and results",
+  // Home-screen web app: run standalone (no browser chrome) with a light status bar.
+  appleWebApp: { capable: true, title: "Survivor", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#0a0d12",
+  // Extend under the notch/home indicator so env(safe-area-inset-*) is non-zero —
+  // required for the bottom tab bar's safe-area padding to work in the iOS home-screen app.
+  viewportFit: "cover",
+  themeColor: "#f5f8fd",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
