@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { magicLink } from "better-auth/plugins";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import { resolveDatabaseUrl } from "./db/client";
+import { sendMagicLinkEmail } from "./klaviyo";
 
 // Neon's Pool talks to Postgres over WebSockets. Vercel's Node serverless runtime has
 // no global WebSocket, so supply one. Also route plain (non-transaction) queries over
@@ -22,8 +24,17 @@ export const auth = betterAuth({
     },
     // Apple added later (Phase 4) — same socialProviders shape.
   },
-  // Must be the last plugin: lets Better Auth set cookies from Next.js server contexts.
-  plugins: [nextCookies()],
+  plugins: [
+    // Passwordless email sign-in. The link is delivered by a Klaviyo flow triggered by
+    // the "Magic Link Requested" event we track in sendMagicLinkEmail. Auto-creates users.
+    magicLink({
+      sendMagicLink: async ({ email, url }) => {
+        await sendMagicLinkEmail(email, url);
+      },
+    }),
+    // Must be the last plugin: lets Better Auth set cookies from Next.js server contexts.
+    nextCookies(),
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

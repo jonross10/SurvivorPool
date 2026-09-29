@@ -51,6 +51,39 @@ function mode(): "preview" | "live" {
   return process.env.KLAVIYO_AGENT_MODE === "live" ? "live" : "preview";
 }
 
+/** Metric name the magic-link email flow is triggered by (build the flow in Klaviyo). */
+export const MAGIC_LINK_METRIC = "Magic Link Requested";
+
+/**
+ * Trigger the passwordless sign-in email by tracking a Klaviyo event that a flow
+ * listens for. The flow's email renders {{ event.magic_link_url }}. Identifies (and
+ * creates if needed) the profile by email. The link token is short-lived (5 min).
+ */
+export async function sendMagicLinkEmail(email: string, url: string): Promise<void> {
+  const key = process.env.KLAVIYO_API_KEY;
+  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
+  const res = await fetch(`${BASE}/events`, {
+    method: "POST",
+    headers: {
+      Authorization: `Klaviyo-API-Key ${key}`,
+      revision: "2026-07-15",
+      accept: "application/vnd.api+json",
+      "content-type": "application/vnd.api+json",
+    },
+    body: JSON.stringify({
+      data: {
+        type: "event",
+        attributes: {
+          metric: { data: { type: "metric", attributes: { name: MAGIC_LINK_METRIC } } },
+          profile: { data: { type: "profile", attributes: { email } } },
+          properties: { magic_link_url: url },
+        },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Klaviyo event failed: ${res.status} ${await res.text()}`);
+}
+
 export interface ConversationCustomer {
   email: string;
   name?: string;
