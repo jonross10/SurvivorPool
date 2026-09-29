@@ -86,4 +86,5 @@ export interface Entry {
   id: string;
   name: string;
   settings: EntrySettings;
+  ownerId: string;
 }

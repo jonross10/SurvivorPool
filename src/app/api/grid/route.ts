@@ -4,11 +4,14 @@ import { buildWinProbs } from "@/lib/winprob-matrix";
 import { currentWeek } from "@/lib/week";
 import { getEntries } from "@/lib/db/entries-repo";
 import { nameToId } from "@/lib/entries-util";
-import { resource, document, jsonApi, getFilter } from "@/lib/jsonapi";
+import { resource, document, errorDocument, jsonApi, getFilter } from "@/lib/jsonapi";
+import { resolveActorUserId } from "@/lib/agent-auth";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
 export async function GET(req: Request) {
-  const entries = await getEntries();
+  const userId = await resolveActorUserId(req);
+  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  const entries = await getEntries(userId);
   if (entries.length === 0) return jsonApi(document([], { week: 0, entry: null }));
   const entry = getFilter(req, "entry") ?? entries[0].name;
   const entryId = nameToId(entries)[entry] ?? entries[0].id;

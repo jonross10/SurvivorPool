@@ -1,6 +1,6 @@
 import { createEntry } from "@/lib/db/entries-repo";
 import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
-import { requireAgentWrite } from "@/lib/agent-auth";
+import { resolveActorUserId } from "@/lib/agent-auth";
 import { getCache } from "@/lib/db/cache-repo";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
@@ -8,11 +8,13 @@ import { currentWeek, resolveSeason } from "@/lib/week";
 import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
 import type { Matchup } from "@/lib/types";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const userId = await resolveActorUserId(req);
+  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const week = currentWeek(schedule, new Date());
   const results = await getResultsFresh(week, resolveSeason());
-  const statuses = await getEntryStatuses(results);
+  const statuses = await getEntryStatuses(results, userId);
   const data = statuses.map(({ entry, status }) =>
     resource("entry", entry.id, {
       name: entry.name,
@@ -25,8 +27,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const unauth = requireAgentWrite(req);
-  if (unauth) return unauth;
+  const userId = await resolveActorUserId(req);
+  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
   const body = await req.json().catch(() => ({}));
   const attrs = body?.data?.attributes ?? {};
   const name: string = attrs.name ?? "";
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid settings", detail: settingsError }]), 400);
   }
   try {
-    const e = await createEntry(name, settings);
+    const e = await createEntry(userId, name, settings);
     return jsonApi(document(resource("entry", e.id, { name: e.name, settings: e.settings })), 201);
   } catch (err) {
     if (err instanceof EmptyNameError) {

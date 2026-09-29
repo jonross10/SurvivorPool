@@ -1,17 +1,29 @@
-import { errorDocument, jsonApi } from "./jsonapi";
-import type { NextResponse } from "next/server";
+import { getSessionUserId } from "./session";
+import { getUserIdByEmail } from "./db/users-repo";
 
 /**
- * Gate for mutation routes. Returns a 401 response to return early, or null to proceed.
- * When AGENT_WRITE_TOKEN is unset (default), all writes are allowed — the browser UI
- * and the agent both post freely to the public site. When it is set, writes require
- * `Authorization: Bearer <AGENT_WRITE_TOKEN>` (the automation/agent path, and the way
- * to bypass any future site gate). Setting it therefore locks down ALL writes.
+ * The user id a request acts as, or null if the request isn't authenticated.
+ *
+ * - Human users are resolved from their Better Auth **session cookie**. A valid
+ *   session always wins, and any `userId`/`email` param is ignored — a signed-in
+ *   user can never act as someone else.
+ * - The **automation path** (the Klaviyo agent, which has no browser session)
+ *   authenticates with the shared `API_KEY` via the `X-API-Key` header and names the
+ *   user it acts for via a query param: `userId` (our id) or `email` (mapped to our
+ *   id — this is what the agent's custom tools inject from the Klaviyo profile).
+ *   Honored ONLY when the API key is valid, so it cannot be spoofed.
  */
-export function requireAgentWrite(req: Request): NextResponse | null {
-  const token = process.env.AGENT_WRITE_TOKEN;
-  if (!token) return null;
-  const header = req.headers.get("authorization") ?? "";
-  if (header === `Bearer ${token}`) return null;
-  return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Valid write token required" }]), 401);
+export async function resolveActorUserId(req: Request): Promise<string | null> {
+  const sessionUser = await getSessionUserId(req);
+  if (sessionUser) return sessionUser;
+
+  const apiKey = process.env.API_KEY;
+  if (apiKey && req.headers.get("x-api-key") === apiKey) {
+    const params = new URL(req.url).searchParams;
+    const userId = params.get("userId");
+    if (userId) return userId;
+    const email = params.get("email");
+    if (email) return await getUserIdByEmail(email);
+  }
+  return null;
 }

@@ -40,13 +40,37 @@ function mode(): "preview" | "live" {
   return process.env.KLAVIYO_AGENT_MODE === "live" ? "live" : "preview";
 }
 
-/** Create a Customer Agent conversation; returns its id. */
-export async function createConversation(): Promise<string> {
+export interface ConversationCustomer {
+  email: string;
+  name?: string;
+}
+
+/** Split a display name into Klaviyo's first_name / last_name (best-effort). */
+function splitName(name?: string): { first_name?: string; last_name?: string } {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {};
+  return { first_name: parts[0], last_name: parts.slice(1).join(" ") || undefined };
+}
+
+/**
+ * Create a Customer Agent conversation tied to the signed-in user's Klaviyo profile
+ * (matched by email). Attaching the customer lets the agent inject that profile's
+ * Email into its custom-tool calls back to our API, which we map to the user.
+ * Returns the conversation id.
+ */
+export async function createConversation(customer: ConversationCustomer): Promise<string> {
   const res = await fetch(`${BASE}/customer-agent-conversations`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
-      data: { type: "customer-agent-conversation", attributes: { mode: mode(), channel: "web-chat" } },
+      data: {
+        type: "customer-agent-conversation",
+        attributes: {
+          mode: mode(),
+          channel: "web-chat",
+          customer: { email: customer.email, ...splitName(customer.name) },
+        },
+      },
     }),
   });
   if (!res.ok) throw new Error(`Klaviyo conversation create failed: ${res.status}`);

@@ -11,8 +11,11 @@ export interface EntryWithStatus {
 }
 
 /** Load every entry with its picks and derived elimination status. */
-export async function getEntryStatuses(results: GameResult[]): Promise<EntryWithStatus[]> {
-  const entries = await getEntries();
+export async function getEntryStatuses(
+  results: GameResult[],
+  ownerId: string,
+): Promise<EntryWithStatus[]> {
+  const entries = await getEntries(ownerId);
   const out: EntryWithStatus[] = [];
   for (const e of entries) {
     const picks = await getPicks(e.id);

@@ -1,26 +1,36 @@
-import { deleteEntry, updateSettings, renameEntry } from "@/lib/db/entries-repo";
+import { deleteEntry, updateSettings, renameEntry, getEntryOwner } from "@/lib/db/entries-repo";
 import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
-import { requireAgentWrite } from "@/lib/agent-auth";
+import { resolveActorUserId } from "@/lib/agent-auth";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
+/** Resolve the actor and confirm they own entry `id`. Returns the user id or a Response. */
+async function authorizeOwner(req: Request, id: string): Promise<string | Response> {
+  const userId = await resolveActorUserId(req);
+  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if ((await getEntryOwner(id)) !== userId) {
+    return jsonApi(errorDocument([{ status: "403", title: "Forbidden", detail: "Not your entry" }]), 403);
+  }
+  return userId;
+}
+
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const unauth = requireAgentWrite(req);
-  if (unauth) return unauth;
   const { id } = await params;
+  const auth = await authorizeOwner(req, id);
+  if (auth instanceof Response) return auth;
   const deleted = await deleteEntry(id);
   return jsonApi(metaDocument({ deleted }));
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const unauth = requireAgentWrite(req);
-  if (unauth) return unauth;
   const { id } = await params;
+  const auth = await authorizeOwner(req, id);
+  if (auth instanceof Response) return auth;
   const body = await req.json().catch(() => ({}));
   const attrs = body?.data?.attributes ?? {};
   // Rename: a `name` attribute renames the entry. Handled independently of settings.
   if ("name" in attrs) {
     try {
-      await renameEntry(id, attrs.name);
+      await renameEntry(id, auth, attrs.name);
     } catch (err) {
       if (err instanceof EmptyNameError) {
         return jsonApi(errorDocument([{ status: "400", title: "Invalid name", detail: err.message }]), 400);
