@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid request", detail: "message is required" }]), 400);
   }
   try {
-    if (!conversationId) conversationId = await createConversation();
+    if (!conversationId) conversationId = await createConversation({ email: user.email, name: user.name });
     const events = await createResponse(conversationId, frameForRouting(message));
     return jsonApi({ conversationId, messages: extractAgentMessages(events) });
   } catch (e) {
