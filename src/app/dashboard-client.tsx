@@ -36,10 +36,18 @@ export default function DashboardClient() {
     // Only the first load shows the spinner; later refreshes (after a pick/setting
     // change) update in place so the dashboard doesn't flash/reload each time.
     if (showSpinner) setLoading(true);
+    const [recRes, entriesRes, matchupsRes] = await Promise.all([
+      fetch(`/api/recommendations`),
+      fetch(`/api/entries`),
+      fetch(`/api/matchups`),
+    ]);
+    // Session expired mid-session: bounce to sign-in (middleware covers fresh loads).
+    if (recRes.status === 401 || entriesRes.status === 401) {
+      window.location.href = "/signin";
+      return;
+    }
     const [recDoc, entriesDoc, matchupsDoc] = await Promise.all([
-      fetch(`/api/recommendations`).then((r) => r.json()),
-      fetch(`/api/entries`).then((r) => r.json()),
-      fetch(`/api/matchups`).then((r) => r.json()),
+      recRes.json(), entriesRes.json(), matchupsRes.json(),
     ]);
     setWeekGames(unwrapMany<GameView>(matchupsDoc));
     type Settings = { ties_survive?: boolean; pool?: string; min_win_chance?: number; pick_due?: { day: number; time: string } | null };
