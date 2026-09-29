@@ -1,7 +1,13 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
-import { Pool } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { resolveDatabaseUrl } from "./db/client";
+
+// Neon's Pool talks to Postgres over WebSockets. Vercel's Node serverless runtime has
+// no global WebSocket, so supply one — otherwise every Better Auth query throws at
+// runtime (500). Local Node 22+ has a global WebSocket, which is why dev worked.
+neonConfig.webSocketConstructor = ws;
 
 // Better Auth accepts a node-postgres-compatible Pool; Neon's serverless Pool works,
 // so we reuse the app's single DB driver and connection helper.
