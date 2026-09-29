@@ -6,10 +6,13 @@ import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
 import { pickResultViews } from "@/lib/elimination";
 import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
-import { resource, document, jsonApi } from "@/lib/jsonapi";
+import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { resolveActorUserId } from "@/lib/agent-auth";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const userId = await resolveActorUserId(req);
+  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const strengths = (await getCache<TeamStrength[]>("fpi"))?.payload ?? [];
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
@@ -18,7 +21,7 @@ export async function GET() {
   const results = await getResultsFresh(cur, resolveSeason());
   // getEntryStatuses already loaded each entry with its picks; reuse that to
   // derive the used-team set and per-week pick map without re-querying.
-  const statuses = await getEntryStatuses(results);
+  const statuses = await getEntryStatuses(results, userId);
   const statusByName = Object.fromEntries(statuses.map((s) => [s.entry.name, s.status]));
   const idByName = nameToId(statuses.map((s) => s.entry));
 
