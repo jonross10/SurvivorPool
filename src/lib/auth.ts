@@ -28,6 +28,7 @@ export const auth = betterAuth({
     // Passwordless email sign-in. The link is delivered by a Klaviyo flow triggered by
     // the "Magic Link Requested" event we track in sendMagicLinkEmail. Auto-creates users.
     magicLink({
+      expiresIn: 900, // 15 minutes
       sendMagicLink: async ({ email, url }) => {
         await sendMagicLinkEmail(email, url);
       },
