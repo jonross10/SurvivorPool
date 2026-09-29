@@ -51,7 +51,8 @@ body {
     @apply rounded-2xl border border-line bg-surface shadow-card;
   }
   .field {
-    @apply rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg
+    /* text-base (16px) on mobile stops iOS Safari from auto-zooming on focus; 14px on desktop. */
+    @apply rounded-lg border border-line bg-surface px-3 py-2 text-base md:text-sm text-fg
            placeholder:text-muted focus:border-accent focus:outline-none;
   }
   .btn-primary {
@@ -86,6 +87,12 @@ body {
 }
 *::-webkit-scrollbar { height: 6px; width: 6px; }
 *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
+
+/* Belt-and-suspenders: any form control is >=16px on phones so iOS Safari never
+   auto-zooms (and shifts/cuts the layout) when it gains focus. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px; }
+}
 
 /* Markdown rendered in the assistant chat bubbles (dark). */
 .assistant-md > :first-child { margin-top: 0; }
