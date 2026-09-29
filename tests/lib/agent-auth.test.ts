@@ -4,66 +4,49 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 // module (which would construct a DB Pool at import time).
 vi.mock("@/lib/session", () => ({ getSessionUserId: vi.fn() }));
 
-import { requireAgentWrite, resolveActorUserId } from "@/lib/agent-auth";
+import { resolveActorUserId } from "@/lib/agent-auth";
 import { getSessionUserId } from "@/lib/session";
 
 const mockSession = getSessionUserId as unknown as ReturnType<typeof vi.fn>;
 
-const orig = process.env.AGENT_WRITE_TOKEN;
-afterEach(() => { process.env.AGENT_WRITE_TOKEN = orig; });
+const orig = process.env.API_KEY;
+afterEach(() => { process.env.API_KEY = orig; });
 
-function req(auth?: string): Request {
-  return new Request("http://x/api/picks", { method: "POST", headers: auth ? { authorization: auth } : {} });
-}
-
-describe("requireAgentWrite", () => {
-  it("allows any request when no token is configured", () => {
-    delete process.env.AGENT_WRITE_TOKEN;
-    expect(requireAgentWrite(req())).toBeNull();
-    expect(requireAgentWrite(req("Bearer whatever"))).toBeNull();
-  });
-
-  it("allows a request with the correct bearer token", () => {
-    process.env.AGENT_WRITE_TOKEN = "secret123";
-    expect(requireAgentWrite(req("Bearer secret123"))).toBeNull();
-  });
-
-  it("rejects missing or wrong token when configured", () => {
-    process.env.AGENT_WRITE_TOKEN = "secret123";
-    const missing = requireAgentWrite(req());
-    const wrong = requireAgentWrite(req("Bearer nope"));
-    expect(missing?.status).toBe(401);
-    expect(wrong?.status).toBe(401);
-  });
-});
-
-function actorReq(headers: Record<string, string> = {}): Request {
-  return new Request("http://x/api/picks", { method: "POST", headers });
+function req(headers: Record<string, string> = {}, userId?: string): Request {
+  const url = userId ? `http://x/api/picks?userId=${userId}` : "http://x/api/picks";
+  return new Request(url, { method: "POST", headers });
 }
 
 describe("resolveActorUserId", () => {
-  it("returns the session user when logged in", async () => {
+  it("returns the session user when logged in (ignores any userId param)", async () => {
     mockSession.mockResolvedValue("user_session");
-    expect(await resolveActorUserId(actorReq())).toBe("user_session");
+    process.env.API_KEY = "secret123";
+    // Even with a valid key + a different userId, the session wins.
+    const r = req({ "x-api-key": "secret123" }, "someone_else");
+    expect(await resolveActorUserId(r)).toBe("user_session");
   });
 
-  it("returns the on-behalf-of id when the agent token is valid", async () => {
+  it("returns the userId query param when the API key is valid", async () => {
     mockSession.mockResolvedValue(null);
-    process.env.AGENT_WRITE_TOKEN = "secret123";
-    const r = actorReq({ authorization: "Bearer secret123", "x-on-behalf-of": "user_target" });
-    expect(await resolveActorUserId(r)).toBe("user_target");
+    process.env.API_KEY = "secret123";
+    expect(await resolveActorUserId(req({ "x-api-key": "secret123" }, "user_target"))).toBe("user_target");
   });
 
-  it("rejects on-behalf-of without a valid agent token", async () => {
+  it("returns null when the API key is valid but no userId is supplied", async () => {
     mockSession.mockResolvedValue(null);
-    process.env.AGENT_WRITE_TOKEN = "secret123";
-    const r = actorReq({ authorization: "Bearer wrong", "x-on-behalf-of": "user_target" });
-    expect(await resolveActorUserId(r)).toBeNull();
+    process.env.API_KEY = "secret123";
+    expect(await resolveActorUserId(req({ "x-api-key": "secret123" }))).toBeNull();
   });
 
-  it("returns null when neither session nor agent token is present", async () => {
+  it("rejects a userId when the API key is wrong", async () => {
     mockSession.mockResolvedValue(null);
-    delete process.env.AGENT_WRITE_TOKEN;
-    expect(await resolveActorUserId(actorReq())).toBeNull();
+    process.env.API_KEY = "secret123";
+    expect(await resolveActorUserId(req({ "x-api-key": "nope" }, "user_target"))).toBeNull();
+  });
+
+  it("returns null when neither session nor API key authenticates", async () => {
+    mockSession.mockResolvedValue(null);
+    delete process.env.API_KEY;
+    expect(await resolveActorUserId(req({}, "user_target"))).toBeNull();
   });
 });
