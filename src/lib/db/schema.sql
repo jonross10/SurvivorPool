@@ -53,6 +53,6 @@ ALTER TABLE pick_overrides DROP CONSTRAINT IF EXISTS pick_overrides_outcome_chec
 ALTER TABLE pick_overrides ADD CONSTRAINT pick_overrides_outcome_check
   CHECK (outcome IN ('survived', 'out', 'revived'));
 
-INSERT INTO entries (id, name) VALUES
-  ('jon','Jon'), ('genevieve','Genevieve'), ('elliot','Elliot')
-ON CONFLICT (id) DO NOTHING;
+-- Every entry now has an owner (backfilled from the old seed rows) so enforce it.
+-- The old ownerless seed INSERT was removed. Entries are created per user via the app.
+ALTER TABLE entries ALTER COLUMN owner_id SET NOT NULL;
