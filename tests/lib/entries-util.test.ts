@@ -62,7 +62,7 @@ describe("validateEntryName", () => {
 
 describe("nameToId", () => {
   it("maps entry names to ids", () => {
-    const map = nameToId([{ id: "a1", name: "Jon", settings: {} }, { id: "b2", name: "Sarah", settings: {} }]);
+    const map = nameToId([{ id: "a1", name: "Jon", settings: {}, ownerId: "u1" }, { id: "b2", name: "Sarah", settings: {}, ownerId: "u1" }]);
     expect(map).toEqual({ Jon: "a1", Sarah: "b2" });
   });
 });
