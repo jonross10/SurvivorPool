@@ -20,11 +20,13 @@
   "type": "module",
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "better-auth": "^1.7.6",
     "next": "^15.5.25",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "ulid": "^3.0.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
