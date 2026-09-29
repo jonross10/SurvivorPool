@@ -2,7 +2,6 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Archivo, Anton } from "next/font/google";
 import Nav from "./nav";
-import AssistantWidget from "@/components/AssistantWidget";
 
 // Athletic broadcast pairing: Anton for big scoreboard display, Archivo for UI/body.
 const archivo = Archivo({ subsets: ["latin"], variable: "--font-sans" });
@@ -25,8 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${archivo.variable} ${anton.variable}`}>
       <body className="min-h-dvh bg-bg font-sans text-fg antialiased">
         <Nav />
-        {children}
-        <AssistantWidget />
+        {/* Bottom padding clears the fixed mobile tab bar; none needed on desktop. */}
+        <div className="pb-20 md:pb-0">{children}</div>
       </body>
     </html>
   );
