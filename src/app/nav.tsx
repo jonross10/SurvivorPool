@@ -91,6 +91,10 @@ function useIsActive() {
 export default function Nav() {
   const isActive = useIsActive();
   const { data: session } = useSession();
+  const path = usePathname();
+
+  // The sign-in page stands alone — no app nav (the user isn't authenticated yet).
+  if (path === "/signin") return null;
 
   return (
     <>
