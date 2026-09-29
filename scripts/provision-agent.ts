@@ -1,172 +1,178 @@
 /**
  * One-time Klaviyo Customer Agent provisioning.
- * Run: KLAVIYO_API_KEY=... APP_BASE_URL=https://survivor-pool-ebon.vercel.app npx tsx scripts/provision-agent.ts
+ * Run: KLAVIYO_API_KEY=... API_KEY=... APP_BASE_URL=https://survivor-pool-ebon.vercel.app npx tsx scripts/provision-agent.ts
  * Re-runnable: resources that 409 (already exist) are skipped.
+ *
+ * Auth model: every tool authenticates to our app with the shared API key (sent as
+ * the X-API-Key header from an encrypted agent-secret) and names the acting user by
+ * appending `?email={{email}}` — the email is injected from the conversation's
+ * Klaviyo profile. Our /api maps that email to the user and scopes the request.
  */
 const BASE = "https://a.klaviyo.com/api";
 const REVISION = "2026-07-15.pre";
 const APP = process.env.APP_BASE_URL;
 const KEY = process.env.KLAVIYO_API_KEY;
-if (!KEY || !APP) { console.error("Set KLAVIYO_API_KEY and APP_BASE_URL"); process.exit(1); }
+const API_KEY = process.env.API_KEY;
+if (!KEY || !APP || !API_KEY) {
+  console.error("Set KLAVIYO_API_KEY, API_KEY, and APP_BASE_URL");
+  process.exit(1);
+}
+
+function klaviyoHeaders(): Record<string, string> {
+  return {
+    Authorization: `Klaviyo-API-Key ${KEY}`,
+    revision: REVISION,
+    accept: "application/vnd.api+json",
+    "content-type": "application/vnd.api+json",
+  };
+}
 
 async function post(path: string, data: unknown): Promise<{ id?: string; status: number }> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Klaviyo-API-Key ${KEY}`,
-      revision: REVISION,
-      accept: "application/vnd.api+json",
-      "content-type": "application/vnd.api+json",
-    },
-    body: JSON.stringify({ data }),
-  });
+  const res = await fetch(`${BASE}${path}`, { method: "POST", headers: klaviyoHeaders(), body: JSON.stringify({ data }) });
   if (res.status === 409) { console.log(`  (exists) ${path}`); return { status: 409 }; }
   if (!res.ok) { console.error(`  FAILED ${path}: ${res.status} ${await res.text()}`); process.exit(1); }
   const doc = await res.json();
   return { id: doc.data?.id, status: res.status };
 }
 
-function httpTool(name: string, description: string, method: string, urlTemplate: string, variables: unknown[] = []) {
+async function getFirstIdByName(path: string, name: string): Promise<string | undefined> {
+  const res = await fetch(`${BASE}${path}`, { headers: klaviyoHeaders() });
+  if (!res.ok) return undefined;
+  const doc = await res.json();
+  return (doc.data ?? []).find((d: { attributes?: { name?: string } }) => d.attributes?.name === name)?.id;
+}
+
+// --- Shared auth wiring for every tool -------------------------------------------
+const SECRET_NAME = "Survivor App API Key";
+const API_KEY_HEADER = { name: "X-API-Key", value: "{{apiKey}}" };
+
+// The email is injected from the conversation's Klaviyo profile.
+// VERIFY: `value` is the Klaviyo-provided reference id for the profile's email under
+// source "klaviyo". The UI labels it "Klaviyo Profile → Email"; if provisioning 400s
+// on this variable, check the exact reference id (e.g. "profile.email") and update here.
+const EMAIL_VAR = {
+  name: "email",
+  type: "string",
+  required: true,
+  description: "The signed-in user's email, from the conversation's Klaviyo profile.",
+  source: "klaviyo",
+  value: "email",
+};
+
+function apiKeyVar(secretId: string) {
+  return { name: "apiKey", type: "string", required: true, description: "Survivor app API key.", source: "secret", value: secretId };
+}
+
+/** Append the acting user's email as a query param, respecting existing query strings. */
+function withEmail(url: string): string {
+  return url.includes("?") ? `${url}&email={{email}}` : `${url}?email={{email}}`;
+}
+
+interface ToolDef {
+  name: string;
+  description: string;
+  method: string;
+  url: string;
+  variables?: unknown[];
+  body?: unknown;
+  maxRetries?: number;
+}
+
+function tool(secretId: string, def: ToolDef) {
+  const headers = [API_KEY_HEADER];
+  if (def.body) headers.push({ name: "content-type", value: "application/vnd.api+json" });
+  const request_template: Record<string, unknown> = {
+    url_template: withEmail(def.url),
+    http_method: def.method,
+    request_timeout_seconds: 10,
+    headers,
+  };
+  if (def.body) request_template.body_template = def.body;
   return {
     type: "agent-tool",
     attributes: {
-      name,
-      public_description: description,
+      name: def.name,
+      public_description: def.description,
       details: {
         type: "custom",
         protocol: "https",
-        request_template: { url_template: urlTemplate, http_method: method, request_timeout_seconds: 10 },
-        variables,
+        request_template,
+        variables: [...(def.variables ?? []), EMAIL_VAR, apiKeyVar(secretId)],
         timeout_seconds: 10,
-        max_retries: 1,
+        max_retries: def.maxRetries ?? 1,
       },
     },
   };
 }
 
 async function main() {
-  console.log("Creating tools…");
-  const getEntries = await post("/agent-tools", httpTool(
-    "get_entries", "Get every entry's status, current pick, used teams, and season projection.",
-    "GET", `${APP}/api/recommendations`,
-  ));
-  const getMatchups = await post("/agent-tools", httpTool(
-    "get_matchups", "Get a week's games with odds, spreads, win %, and results.",
-    "GET", `${APP}/api/matchups?filter[week]={{week}}`,
-    [{ name: "week", type: "number", required: true, description: "NFL week number", source: "dynamic" }],
-  ));
-  // make_pick: POST body via template. No auth header today (site is public).
-  // TO LOCK DOWN LATER: set AGENT_WRITE_TOKEN on the app, create a Klaviyo agent-secret
-  // holding that token, and add an `Authorization: Bearer {{token}}` header here with a
-  // variable {name:"token", source:"secret", value:"<agent-secret id>"}.
-  const makePick = await post("/agent-tools", {
-    type: "agent-tool",
-    attributes: {
-      name: "make_pick",
-      public_description: "Record or swap a pick for an entry in a given week. Confirm with the user first.",
-      details: {
-        type: "custom",
-        protocol: "https",
-        request_template: {
-          url_template: `${APP}/api/picks`,
-          http_method: "POST",
-          request_timeout_seconds: 10,
-          headers: [{ name: "content-type", value: "application/vnd.api+json" }],
-          body_template: { data: { type: "pick", attributes: { entry: "{{entry}}", week: "{{week}}", team: "{{team}}" } } },
-        },
-        variables: [
-          { name: "entry", type: "string", required: true, description: "Entry name", source: "dynamic" },
-          { name: "week", type: "number", required: true, description: "NFL week", source: "dynamic" },
-          { name: "team", type: "string", required: true, description: "Team abbreviation, e.g. KC", source: "dynamic" },
-        ],
-        timeout_seconds: 10,
-        max_retries: 0,
-      },
-    },
-  });
+  console.log("Creating agent secret…");
+  const secretRes = await post("/agent-secrets", { type: "agent-secret", attributes: { name: SECRET_NAME, value: API_KEY } });
+  const secretId = secretRes.id ?? (await getFirstIdByName("/agent-secrets", SECRET_NAME));
+  if (!secretId) { console.error("Could not resolve the agent-secret id; aborting."); process.exit(1); }
 
-  // Entry management. Users refer to entries by name; update/delete need the id,
-  // which the agent resolves from get_entries. Same auth note as make_pick applies.
-  const createEntryTool = await post("/agent-tools", {
-    type: "agent-tool",
-    attributes: {
-      name: "create_entry",
-      public_description: "Add a new survivor-pool entry by name, optionally with settings (pool, ties_survive, min_win_chance). Confirm with the user first.",
-      details: {
-        type: "custom",
-        protocol: "https",
-        request_template: {
-          url_template: `${APP}/api/entries`,
-          http_method: "POST",
-          request_timeout_seconds: 10,
-          headers: [{ name: "content-type", value: "application/vnd.api+json" }],
-          // Blank optional settings are dropped server-side (normalizeSettings).
-          body_template: {
-            data: {
-              type: "entry",
-              attributes: {
-                name: "{{name}}",
-                settings: { pool: "{{pool}}", ties_survive: "{{ties_survive}}", min_win_chance: "{{min_win_chance}}" },
-              },
-            },
-          },
-        },
-        variables: [
-          { name: "name", type: "string", required: true, description: "New entry name", source: "dynamic" },
-          { name: "pool", type: "string", required: false, description: "Coordination pool name (default main)", source: "dynamic" },
-          { name: "ties_survive", type: "string", required: false, description: "'true' or 'false' — whether a tie keeps the entry alive", source: "dynamic" },
-          { name: "min_win_chance", type: "string", required: false, description: "Safety floor 0-0.95, e.g. 0.6", source: "dynamic" },
-        ],
-        timeout_seconds: 10,
-        max_retries: 0,
-      },
-    },
-  });
-  const updateEntryTool = await post("/agent-tools", {
-    type: "agent-tool",
-    attributes: {
-      name: "update_entry",
-      public_description: "Rename an entry. Pass the entry id (from get_entries) and the new name. Confirm first.",
-      details: {
-        type: "custom",
-        protocol: "https",
-        request_template: {
-          url_template: `${APP}/api/entries/{{id}}`,
-          http_method: "PATCH",
-          request_timeout_seconds: 10,
-          headers: [{ name: "content-type", value: "application/vnd.api+json" }],
-          body_template: { data: { type: "entry", attributes: { name: "{{name}}" } } },
-        },
-        variables: [
-          { name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" },
-          { name: "name", type: "string", required: true, description: "New entry name", source: "dynamic" },
-        ],
-        timeout_seconds: 10,
-        max_retries: 0,
-      },
-    },
-  });
-  const deleteEntryTool = await post("/agent-tools", {
-    type: "agent-tool",
-    attributes: {
-      name: "delete_entry",
-      public_description: "Delete an entry by id (from get_entries). Destructive — always confirm the exact entry with the user first.",
-      details: {
-        type: "custom",
-        protocol: "https",
-        request_template: {
-          url_template: `${APP}/api/entries/{{id}}`,
-          http_method: "DELETE",
-          request_timeout_seconds: 10,
-        },
-        variables: [
-          { name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" },
-        ],
-        timeout_seconds: 10,
-        max_retries: 0,
-      },
-    },
-  });
+  console.log("Creating tools…");
+  const getEntries = await post("/agent-tools", tool(secretId, {
+    name: "get_entries",
+    description: "Get every entry's status, current pick, used teams, and season projection.",
+    method: "GET",
+    url: `${APP}/api/recommendations`,
+  }));
+  const getMatchups = await post("/agent-tools", tool(secretId, {
+    name: "get_matchups",
+    description: "Get a week's games with odds, spreads, win %, and results.",
+    method: "GET",
+    url: `${APP}/api/matchups?filter[week]={{week}}`,
+    variables: [{ name: "week", type: "number", required: true, description: "NFL week number", source: "dynamic" }],
+  }));
+  const makePick = await post("/agent-tools", tool(secretId, {
+    name: "make_pick",
+    description: "Record or swap a pick for an entry in a given week. Confirm with the user first.",
+    method: "POST",
+    url: `${APP}/api/picks`,
+    body: { data: { type: "pick", attributes: { entry: "{{entry}}", week: "{{week}}", team: "{{team}}" } } },
+    maxRetries: 0,
+    variables: [
+      { name: "entry", type: "string", required: true, description: "Entry name", source: "dynamic" },
+      { name: "week", type: "number", required: true, description: "NFL week", source: "dynamic" },
+      { name: "team", type: "string", required: true, description: "Team abbreviation, e.g. KC", source: "dynamic" },
+    ],
+  }));
+  const createEntryTool = await post("/agent-tools", tool(secretId, {
+    name: "create_entry",
+    description: "Add a new survivor-pool entry by name, optionally with settings (pool, ties_survive, min_win_chance). Confirm with the user first.",
+    method: "POST",
+    url: `${APP}/api/entries`,
+    // Blank optional settings are dropped server-side (normalizeSettings).
+    body: { data: { type: "entry", attributes: { name: "{{name}}", settings: { pool: "{{pool}}", ties_survive: "{{ties_survive}}", min_win_chance: "{{min_win_chance}}" } } } },
+    maxRetries: 0,
+    variables: [
+      { name: "name", type: "string", required: true, description: "New entry name", source: "dynamic" },
+      { name: "pool", type: "string", required: false, description: "Coordination pool name (default main)", source: "dynamic" },
+      { name: "ties_survive", type: "string", required: false, description: "'true' or 'false' — whether a tie keeps the entry alive", source: "dynamic" },
+      { name: "min_win_chance", type: "string", required: false, description: "Safety floor 0-0.95, e.g. 0.6", source: "dynamic" },
+    ],
+  }));
+  const updateEntryTool = await post("/agent-tools", tool(secretId, {
+    name: "update_entry",
+    description: "Rename an entry. Pass the entry id (from get_entries) and the new name. Confirm first.",
+    method: "PATCH",
+    url: `${APP}/api/entries/{{id}}`,
+    body: { data: { type: "entry", attributes: { name: "{{name}}" } } },
+    maxRetries: 0,
+    variables: [
+      { name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" },
+      { name: "name", type: "string", required: true, description: "New entry name", source: "dynamic" },
+    ],
+  }));
+  const deleteEntryTool = await post("/agent-tools", tool(secretId, {
+    name: "delete_entry",
+    description: "Delete an entry by id (from get_entries). Destructive — always confirm the exact entry with the user first.",
+    method: "DELETE",
+    url: `${APP}/api/entries/{{id}}`,
+    maxRetries: 0,
+    variables: [{ name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" }],
+  }));
 
   console.log("Creating knowledge…");
   const knowledge: [string, string][] = [
