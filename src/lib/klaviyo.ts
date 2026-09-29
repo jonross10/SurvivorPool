@@ -20,9 +20,20 @@ export function extractAgentMessages(events: AgentEvent[] | undefined): string[]
  * router picks our Survivor Strategy skill instead of the prebuilt e-commerce
  * "General Q&A" (which can't be disabled or edited). The UI still shows the user's
  * original text — only the routed copy is tagged.
+ *
+ * When the user is signed in, we also embed their (server-verified) opaque account id
+ * so the agent treats them as pre-authenticated and passes the id to our tools — the
+ * Customer Agent API has no shopper-auth mechanism, so we assert it from the trusted
+ * host app instead. The id is injected server-side; the client cannot spoof it. We pass
+ * the id (not the email) to avoid piping PII through the agent.
  */
-export function frameForRouting(message: string): string {
-  return `(NFL survivor pool assistant) ${message}`;
+export function frameForRouting(message: string, userId?: string): string {
+  if (!userId) return `(NFL survivor pool assistant) ${message}`;
+  return (
+    `(NFL survivor pool assistant — the shopper is already authenticated by the host app; ` +
+    `their account id is ${userId}; never ask them to log in, and pass this account id to ` +
+    `all tool calls.) ${message}`
+  );
 }
 
 function headers(): Record<string, string> {

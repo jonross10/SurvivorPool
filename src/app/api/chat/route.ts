@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   }
   try {
     if (!conversationId) conversationId = await createConversation({ email: user.email, name: user.name });
-    const events = await createResponse(conversationId, frameForRouting(message));
+    const events = await createResponse(conversationId, frameForRouting(message, user.id));
     return jsonApi({ conversationId, messages: extractAgentMessages(events) });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
