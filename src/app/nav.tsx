@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useSession, signOut } from "@/lib/auth-client";
 
 type NavLink = {
   href: string;
@@ -89,6 +90,7 @@ function useIsActive() {
 
 export default function Nav() {
   const isActive = useIsActive();
+  const { data: session } = useSession();
 
   return (
     <>
@@ -102,6 +104,18 @@ export default function Nav() {
                 Survivor<span className="text-accent">.</span>
               </span>
             </Link>
+            {session?.user && (
+              <button
+                onClick={() => signOut()}
+                className="ml-auto flex items-center gap-2 text-sm font-semibold text-muted hover:text-fg"
+                aria-label="Sign out"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-fg">
+                  {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
+                </span>
+                Sign out
+              </button>
+            )}
           </div>
           {/* Desktop: horizontally scrollable pills. Hidden on mobile (bottom bar there). */}
           <div className="-mx-3 hidden gap-1.5 overflow-x-auto px-3 pb-2 md:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
