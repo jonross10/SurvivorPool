@@ -12,8 +12,8 @@ type NavLink = {
   icon: ReactNode;
 };
 
-// Inline 20px stroke icons (match public/nav-mockups.html variant C).
-const ic = "h-5 w-5";
+// Inline 22px stroke icons (match public/nav-mockups.html variant C).
+const ic = "h-[22px] w-[22px]";
 const LINKS: NavLink[] = [
   {
     href: "/",
@@ -88,61 +88,65 @@ function useIsActive() {
   return (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 }
 
-export default function Nav() {
+/** Top brand bar. Brand always; scrollable pills on desktop only. Flex sibling (not sticky). */
+export function TopNav() {
   const isActive = useIsActive();
   const { data: session } = useSession();
   const path = usePathname();
-
-  // The sign-in page stands alone — no app nav (the user isn't authenticated yet).
   if (path === "/signin") return null;
 
   return (
-    <>
-      {/* ── Top bar: brand always; scrollable pills on desktop only. ───── */}
-      <nav className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-xl">
-        <div className="mx-auto max-w-4xl px-3">
-          <div className="flex items-center justify-between py-2.5">
-            <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-              <Image src="/logo.png" alt="" width={26} height={26} className="rounded-md" />
-              <span className="font-display text-lg uppercase tracking-wide">
-                Survivor<span className="text-accent">.</span>
+    <nav className="shrink-0 border-b border-line bg-bg/80 backdrop-blur-xl">
+      <div className="mx-auto max-w-4xl px-3">
+        <div className="flex items-center justify-between py-2.5">
+          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
+            <Image src="/logo.png" alt="" width={26} height={26} className="rounded-md" />
+            <span className="font-display text-lg uppercase tracking-wide">
+              Survivor<span className="text-accent">.</span>
+            </span>
+          </Link>
+          {session?.user && (
+            <button
+              onClick={() => signOut()}
+              className="ml-auto flex items-center gap-2 text-sm font-semibold text-muted hover:text-fg"
+              aria-label="Sign out"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-fg">
+                {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
               </span>
-            </Link>
-            {session?.user && (
-              <button
-                onClick={() => signOut()}
-                className="ml-auto flex items-center gap-2 text-sm font-semibold text-muted hover:text-fg"
-                aria-label="Sign out"
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-fg">
-                  {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
-                </span>
-                Sign out
-              </button>
-            )}
-          </div>
-          {/* Desktop: horizontally scrollable pills. Hidden on mobile (bottom bar there). */}
-          <div className="-mx-3 hidden gap-1.5 overflow-x-auto px-3 pb-2 md:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {LINKS.map((l) => (
-              <Link key={l.href} href={l.href} className={`pill ${isActive(l.href) ? "pill-active" : ""}`}>
-                {l.label}
-              </Link>
-            ))}
-          </div>
+              Sign out
+            </button>
+          )}
         </div>
-      </nav>
-
-      {/* ── Bottom tab bar: mobile only. ───────────────────────────────── */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/90 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] md:hidden">
-        <div className="flex items-stretch justify-around px-1 pt-2 pb-2.5">
+        {/* Desktop: horizontally scrollable pills. Hidden on mobile (bottom bar there). */}
+        <div className="-mx-3 hidden gap-1.5 overflow-x-auto px-3 pb-2 md:flex [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {LINKS.map((l) => (
-            <Link key={l.href} href={l.href} className={`tab ${isActive(l.href) ? "tab-active" : ""}`}>
-              {l.icon}
-              <span>{l.short}</span>
+            <Link key={l.href} href={l.href} className={`pill ${isActive(l.href) ? "pill-active" : ""}`}>
+              {l.label}
             </Link>
           ))}
         </div>
-      </nav>
-    </>
+      </div>
+    </nav>
+  );
+}
+
+/** Bottom tab bar. Mobile only. Flex sibling at the bottom of the app shell. */
+export function BottomNav() {
+  const isActive = useIsActive();
+  const path = usePathname();
+  if (path === "/signin") return null;
+
+  return (
+    <nav className="shrink-0 border-t border-line bg-surface/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] md:hidden">
+      <div className="flex items-stretch justify-around gap-0.5 px-0.5 pt-1.5 pb-1.5">
+        {LINKS.map((l) => (
+          <Link key={l.href} href={l.href} className={`tab ${isActive(l.href) ? "tab-active" : ""}`}>
+            {l.icon}
+            <span>{l.short}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
   );
 }

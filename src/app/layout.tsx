@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Archivo, Anton } from "next/font/google";
-import Nav from "./nav";
+import { TopNav, BottomNav } from "./nav";
 
 // Athletic broadcast pairing: Anton for big scoreboard display, Archivo for UI/body.
 const archivo = Archivo({ subsets: ["latin"], variable: "--font-sans" });
@@ -22,10 +22,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${archivo.variable} ${anton.variable}`}>
-      <body className="min-h-dvh bg-bg font-sans text-fg antialiased">
-        <Nav />
-        {/* Bottom padding clears the fixed mobile tab bar; none needed on desktop. */}
-        <div className="pb-20 md:pb-0">{children}</div>
+      {/* App shell: fixed-height flex column so the nav bars stay put and the content
+          area scrolls internally. Avoids the mobile 100dvh/padding math that broke the
+          full-height chat page. */}
+      <body className="flex h-dvh flex-col overflow-hidden bg-bg font-sans text-fg antialiased">
+        <TopNav />
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">{children}</div>
+        <BottomNav />
       </body>
     </html>
   );

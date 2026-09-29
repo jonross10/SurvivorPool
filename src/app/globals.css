@@ -71,8 +71,8 @@ body {
   }
   /* Bottom tab bar items (mobile). Icon over label; active = brand accent. */
   .tab {
-    @apply flex flex-1 flex-col items-center gap-0.5 text-[10px] font-semibold
-           text-muted transition-colors hover:text-fg;
+    @apply flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold
+           leading-tight text-muted transition-colors hover:text-fg;
   }
   .tab-active {
     @apply text-accent hover:text-accent;

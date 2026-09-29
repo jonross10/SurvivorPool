@@ -111,11 +111,11 @@ export default function AssistantChat() {
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "user" ? (
-              <span className="inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
+              <span className="inline-block max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
                 {m.text}
               </span>
             ) : (
-              <div className="inline-block max-w-[85%] rounded-2xl bg-surface-2 px-3 py-2 text-sm text-fg">
+              <div className="inline-block max-w-[85%] overflow-hidden break-words rounded-2xl bg-surface-2 px-3 py-2 text-sm text-fg">
                 <div className="assistant-md">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
                 </div>
