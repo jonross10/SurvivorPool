@@ -13,11 +13,7 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Valid API key required" }]), 401);
   }
 
-  // TEMP debug: capture exactly what the Klaviyo flow webhook sends.
-  const raw = await req.text();
-  console.log("[push/send] raw body:", raw);
-  let body: Record<string, unknown> = {};
-  try { body = JSON.parse(raw); } catch (e) { console.log("[push/send] JSON parse failed:", e instanceof Error ? e.message : e); }
+  const body = await req.json().catch(() => ({}));
   const title: unknown = body?.title;
   const message: unknown = body?.body;
   const url: unknown = body?.url;
@@ -26,9 +22,9 @@ export async function POST(req: Request) {
   }
 
   // Trim — Klaviyo-templated values can arrive with stray whitespace/newlines.
+  // Trim — Klaviyo-templated values can arrive with stray whitespace/newlines.
   let userId: string | null = typeof body?.userId === "string" ? body.userId.trim() || null : null;
   if (!userId && typeof body?.email === "string") userId = await getUserIdByEmail(body.email.trim());
-  console.log("[push/send] resolved userId:", JSON.stringify(userId));
   if (!userId) {
     return jsonApi(errorDocument([{ status: "400", title: "Unknown recipient", detail: "userId or a known email is required" }]), 400);
   }
