@@ -87,15 +87,6 @@ export default function PushToggle() {
     }
   }
 
-  async function sendTest() {
-    setBusy(true);
-    try {
-      await fetch("/api/push/test", { method: "POST" });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (state === "loading") return <p className="text-sm text-muted">Checking notifications…</p>;
   if (state === "unsupported") return <p className="text-sm text-muted">Notifications aren&apos;t supported in this browser.</p>;
   if (state === "denied") {
@@ -114,12 +105,6 @@ export default function PushToggle() {
           {busy ? "…" : on ? "Disable" : "Enable"}
         </button>
       </div>
-      {/* TEMPORARY test-push button — remove once Klaviyo flows are set up. */}
-      {on && (
-        <button onClick={sendTest} disabled={busy} className="btn-ghost w-full">
-          Send test notification
-        </button>
-      )}
     </div>
   );
 }
