@@ -4,7 +4,7 @@ import { magicLink } from "better-auth/plugins";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 import { resolveDatabaseUrl } from "./db/client";
-import { sendMagicLinkEmail } from "./klaviyo";
+import { sendMagicLinkEmail, linkProfileExternalId } from "./klaviyo";
 
 // Neon's Pool talks to Postgres over WebSockets. Vercel's Node serverless runtime has
 // no global WebSocket, so supply one. Also route plain (non-transaction) queries over
@@ -23,6 +23,22 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     },
     // Apple added later (Phase 4) — same socialProviders shape.
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // On account creation (Google or magic-link), create/link the Klaviyo profile
+        // with external_id = our user id so flows can target {{ person.external_id }}
+        // immediately. Best-effort — never block sign-up if Klaviyo is unavailable.
+        after: async (user) => {
+          try {
+            if (user.email) await linkProfileExternalId(user.email, user.id);
+          } catch {
+            /* non-fatal */
+          }
+        },
+      },
+    },
   },
   plugins: [
     // Passwordless email sign-in. The link is delivered by a Klaviyo flow triggered by

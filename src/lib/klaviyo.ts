@@ -53,6 +53,41 @@ function mode(): "preview" | "live" {
 
 /** Metric name the magic-link email flow is triggered by (build the flow in Klaviyo). */
 export const MAGIC_LINK_METRIC = "Magic Link Requested";
+export const PUSH_ENABLED_METRIC = "Push Enabled";
+export const PUSH_DISABLED_METRIC = "Push Disabled";
+
+/**
+ * Track a Klaviyo event on a profile (identified by email, created if needed). Powers
+ * flow triggers. `properties` are exposed to the flow as {{ event.<key> }}.
+ */
+export async function trackEvent(
+  email: string,
+  metricName: string,
+  properties: Record<string, unknown> = {},
+): Promise<void> {
+  const key = process.env.KLAVIYO_API_KEY;
+  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
+  const res = await fetch(`${BASE}/events`, {
+    method: "POST",
+    headers: {
+      Authorization: `Klaviyo-API-Key ${key}`,
+      revision: "2026-07-15",
+      accept: "application/vnd.api+json",
+      "content-type": "application/vnd.api+json",
+    },
+    body: JSON.stringify({
+      data: {
+        type: "event",
+        attributes: {
+          metric: { data: { type: "metric", attributes: { name: metricName } } },
+          profile: { data: { type: "profile", attributes: { email } } },
+          properties,
+        },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Klaviyo event failed: ${res.status} ${await res.text()}`);
+}
 
 function profilesHeaders(): Record<string, string> {
   const key = process.env.KLAVIYO_API_KEY;
@@ -96,28 +131,7 @@ export async function linkProfileExternalId(email: string, externalId: string): 
  * creates if needed) the profile by email. The link token is short-lived (5 min).
  */
 export async function sendMagicLinkEmail(email: string, url: string): Promise<void> {
-  const key = process.env.KLAVIYO_API_KEY;
-  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
-  const res = await fetch(`${BASE}/events`, {
-    method: "POST",
-    headers: {
-      Authorization: `Klaviyo-API-Key ${key}`,
-      revision: "2026-07-15",
-      accept: "application/vnd.api+json",
-      "content-type": "application/vnd.api+json",
-    },
-    body: JSON.stringify({
-      data: {
-        type: "event",
-        attributes: {
-          metric: { data: { type: "metric", attributes: { name: MAGIC_LINK_METRIC } } },
-          profile: { data: { type: "profile", attributes: { email } } },
-          properties: { magic_link_url: url },
-        },
-      },
-    }),
-  });
-  if (!res.ok) throw new Error(`Klaviyo event failed: ${res.status} ${await res.text()}`);
+  await trackEvent(email, MAGIC_LINK_METRIC, { magic_link_url: url });
 }
 
 export interface ConversationCustomer {

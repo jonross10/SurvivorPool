@@ -87,25 +87,42 @@ export default function PushToggle() {
     }
   }
 
+  async function sendTest() {
+    setBusy(true);
+    try {
+      await fetch("/api/push/test", { method: "POST" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (state === "loading" || state === "unsupported") return null;
 
   const on = state === "on";
   const denied = state === "denied";
   return (
-    <button
-      onClick={denied ? undefined : on ? disable : enable}
-      disabled={busy || denied}
-      aria-label={on ? "Turn notifications off" : "Turn notifications on"}
-      title={denied ? "Notifications are blocked in your browser settings" : on ? "Notifications on" : "Enable notifications"}
-      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
-        on ? "text-accent" : "text-muted hover:text-fg"
-      }`}
-    >
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill={on ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        {denied && <path d="M3 3l18 18" stroke="currentColor" />}
-      </svg>
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={denied ? undefined : on ? disable : enable}
+        disabled={busy || denied}
+        aria-label={on ? "Turn notifications off" : "Turn notifications on"}
+        title={denied ? "Notifications are blocked in your browser settings" : on ? "Notifications on" : "Enable notifications"}
+        className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
+          on ? "text-accent" : "text-muted hover:text-fg"
+        }`}
+      >
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill={on ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          {denied && <path d="M3 3l18 18" stroke="currentColor" />}
+        </svg>
+      </button>
+      {/* TEMPORARY test-push button — remove once Klaviyo flows are set up. */}
+      {on && (
+        <button onClick={sendTest} disabled={busy} className="text-xs font-semibold text-muted hover:text-fg disabled:opacity-40">
+          Test
+        </button>
+      )}
+    </div>
   );
 }

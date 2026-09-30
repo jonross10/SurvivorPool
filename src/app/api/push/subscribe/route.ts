@@ -1,6 +1,6 @@
 import { getSessionUser } from "@/lib/session";
 import { saveSubscription, deleteSubscription, type WebPushSubscription } from "@/lib/db/push-repo";
-import { linkProfileExternalId } from "@/lib/klaviyo";
+import { linkProfileExternalId, trackEvent, PUSH_ENABLED_METRIC, PUSH_DISABLED_METRIC } from "@/lib/klaviyo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 function isValidSub(s: unknown): s is WebPushSubscription {
@@ -19,9 +19,11 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid subscription", detail: "A valid push subscription is required" }]), 400);
   }
   await saveSubscription(user.id, sub);
-  // Link the Klaviyo profile so flows can target this user via {{ person.external_id }}.
+  // Link the Klaviyo profile so flows can target this user via {{ person.external_id }},
+  // and emit an event flows can react to. Both best-effort.
   if (user.email) {
     try { await linkProfileExternalId(user.email, user.id); } catch { /* non-fatal */ }
+    try { await trackEvent(user.email, PUSH_ENABLED_METRIC); } catch { /* non-fatal */ }
   }
   return jsonApi(metaDocument({ ok: true }), 201);
 }
@@ -36,5 +38,8 @@ export async function DELETE(req: Request) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid request", detail: "endpoint is required" }]), 400);
   }
   await deleteSubscription(endpoint);
+  if (user.email) {
+    try { await trackEvent(user.email, PUSH_DISABLED_METRIC); } catch { /* non-fatal */ }
+  }
   return jsonApi(metaDocument({ ok: true }));
 }
