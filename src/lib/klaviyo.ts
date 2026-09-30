@@ -54,6 +54,42 @@ function mode(): "preview" | "live" {
 /** Metric name the magic-link email flow is triggered by (build the flow in Klaviyo). */
 export const MAGIC_LINK_METRIC = "Magic Link Requested";
 
+function profilesHeaders(): Record<string, string> {
+  const key = process.env.KLAVIYO_API_KEY;
+  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
+  return {
+    Authorization: `Klaviyo-API-Key ${key}`,
+    revision: "2026-07-15",
+    accept: "application/vnd.api+json",
+    "content-type": "application/vnd.api+json",
+  };
+}
+
+/**
+ * Link a Klaviyo profile (by email) to our ULID user id via `external_id`, so flows can
+ * reference `{{ person.external_id }}` and push webhooks can target our user directly.
+ * Best-effort: upsert by email (create; on 409 PATCH the existing profile).
+ */
+export async function linkProfileExternalId(email: string, externalId: string): Promise<void> {
+  const create = await fetch(`${BASE}/profiles`, {
+    method: "POST",
+    headers: profilesHeaders(),
+    body: JSON.stringify({ data: { type: "profile", attributes: { email, external_id: externalId } } }),
+  });
+  if (create.status === 201) return;
+  if (create.status === 409) {
+    const doc = await create.json().catch(() => ({}));
+    const id = doc?.errors?.[0]?.meta?.duplicate_profile_id;
+    if (!id) return;
+    await fetch(`${BASE}/profiles/${id}`, {
+      method: "PATCH",
+      headers: profilesHeaders(),
+      body: JSON.stringify({ data: { type: "profile", id, attributes: { external_id: externalId } } }),
+    });
+  }
+  // Any other status: non-fatal — push still works via userId; we just log upstream if needed.
+}
+
 /**
  * Trigger the passwordless sign-in email by tracking a Klaviyo event that a flow
  * listens for. The flow's email renders {{ event.magic_link_url }}. Identifies (and

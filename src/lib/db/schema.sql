@@ -56,3 +56,14 @@ ALTER TABLE pick_overrides ADD CONSTRAINT pick_overrides_outcome_check
 -- Every entry now has an owner (backfilled from the old seed rows) so enforce it.
 -- The old ownerless seed INSERT was removed. Entries are created per user via the app.
 ALTER TABLE entries ALTER COLUMN owner_id SET NOT NULL;
+
+-- Web Push subscriptions (one row per browser/device a user enabled notifications on).
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL UNIQUE,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions (user_id);

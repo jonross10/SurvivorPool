@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
+import PushToggle from "@/components/PushToggle";
 
 type NavLink = {
   href: string;
@@ -106,16 +107,19 @@ export function TopNav() {
             </span>
           </Link>
           {session?.user && (
-            <button
-              onClick={() => signOut()}
-              className="ml-auto flex items-center gap-2 text-sm font-semibold text-muted hover:text-fg"
-              aria-label="Sign out"
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-fg">
-                {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
-              </span>
-              Sign out
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <PushToggle />
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-2 text-sm font-semibold text-muted hover:text-fg"
+                aria-label="Sign out"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs font-bold text-fg">
+                  {(session.user.name ?? session.user.email ?? "?").charAt(0).toUpperCase()}
+                </span>
+                Sign out
+              </button>
+            </div>
           )}
         </div>
         {/* Desktop: horizontally scrollable pills. Hidden on mobile (bottom bar there). */}
