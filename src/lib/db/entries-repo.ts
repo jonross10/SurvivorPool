@@ -11,6 +11,12 @@ export async function getEntries(ownerId: string): Promise<Entry[]> {
   `) as unknown as Entry[];
 }
 
+/** Distinct owner ids across all entries (for the nightly Klaviyo reconcile). Unscoped. */
+export async function getAllOwnerIds(): Promise<string[]> {
+  const rows = (await sql`SELECT DISTINCT owner_id AS "ownerId" FROM entries`) as { ownerId: string }[];
+  return rows.map((r) => r.ownerId).filter(Boolean);
+}
+
 /** The owner of a single entry, or null if it doesn't exist. For authorization checks. */
 export async function getEntryOwner(id: string): Promise<string | null> {
   const rows = (await sql`

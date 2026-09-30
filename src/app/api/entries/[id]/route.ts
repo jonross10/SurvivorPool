@@ -1,6 +1,7 @@
 import { deleteEntry, updateSettings, renameEntry, getEntryOwner } from "@/lib/db/entries-repo";
 import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
 import { resolveActorUserId } from "@/lib/agent-auth";
+import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 /** Resolve the actor and confirm they own entry `id`. Returns the user id or a Response. */
@@ -18,6 +19,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const auth = await authorizeOwner(req, id);
   if (auth instanceof Response) return auth;
   const deleted = await deleteEntry(id);
+  syncOwnerInBackground(auth);
   return jsonApi(metaDocument({ deleted }));
 }
 
@@ -41,7 +43,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       throw err;
     }
     // A name-only PATCH is complete; settings are optional in the same call.
-    if (!("settings" in attrs)) return jsonApi(metaDocument({ ok: true }));
+    if (!("settings" in attrs)) { syncOwnerInBackground(auth); return jsonApi(metaDocument({ ok: true })); }
   }
   const raw = attrs.settings;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -56,5 +58,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return jsonApi(errorDocument([{ status: "400", title: "Invalid settings", detail: settingsError }]), 400);
   }
   await updateSettings(id, settings);
+  syncOwnerInBackground(auth);
   return jsonApi(metaDocument({ ok: true }));
 }

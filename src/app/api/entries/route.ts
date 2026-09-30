@@ -1,6 +1,7 @@
 import { createEntry } from "@/lib/db/entries-repo";
 import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
 import { resolveActorUserId } from "@/lib/agent-auth";
+import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
 import { getCache } from "@/lib/db/cache-repo";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
   }
   try {
     const e = await createEntry(userId, name, settings);
+    syncOwnerInBackground(userId);
     return jsonApi(document(resource("entry", e.id, { name: e.name, settings: e.settings })), 201);
   } catch (err) {
     if (err instanceof EmptyNameError) {

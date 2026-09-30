@@ -2,6 +2,7 @@ import { setOverride, clearOverride, type OverrideOutcome } from "@/lib/db/pick-
 import { getEntries } from "@/lib/db/entries-repo";
 import { nameToId } from "@/lib/entries-util";
 import { resolveActorUserId } from "@/lib/agent-auth";
+import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
 import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 interface Attrs { entry: string; week: number; outcome: OverrideOutcome }
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
     );
   }
   await setOverride(entryId, week, outcome);
+  syncOwnerInBackground(userId);
   return jsonApi(document(resource("pick-override", `${entryId}:${week}`, { entry, week, outcome })), 201);
 }
 
@@ -42,5 +44,6 @@ export async function DELETE(req: Request) {
     );
   }
   const deleted = await clearOverride(entryId, week);
+  syncOwnerInBackground(userId);
   return jsonApi(metaDocument({ deleted }));
 }
