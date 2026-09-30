@@ -55,6 +55,8 @@ function mode(): "preview" | "live" {
 export const MAGIC_LINK_METRIC = "Magic Link Requested";
 export const PUSH_ENABLED_METRIC = "Push Enabled";
 export const PUSH_DISABLED_METRIC = "Push Disabled";
+export const SIGNED_UP_METRIC = "Signed Up";
+export const TEST_PUSH_METRIC = "Test Push Requested";
 
 /**
  * Track a Klaviyo event on a profile (identified by email, created if needed). Powers

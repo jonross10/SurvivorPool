@@ -1,15 +1,21 @@
-// TEMPORARY: lets a signed-in user send themselves a test push. Remove once flows are set up.
+// TEMPORARY: lets a signed-in user fire the full push pathway (event -> Klaviyo flow
+// webhook -> /api/push/send -> browser). Remove once real flows are set up.
 import { getSessionUser } from "@/lib/session";
-import { sendPushToUser } from "@/lib/push";
+import { linkProfileExternalId, trackEvent, TEST_PUSH_METRIC } from "@/lib/klaviyo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 export async function POST(req: Request) {
   const user = await getSessionUser(req);
   if (!user) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
-  const result = await sendPushToUser(user.id, {
-    title: "Survivor Assistant",
-    body: "🔔 Test notification — push is working!",
-    url: "/",
+  if (!user.email) return jsonApi(errorDocument([{ status: "400", title: "No email", detail: "Account has no email" }]), 400);
+  // Ensure external_id is linked so the flow can target {{ person.external_id }}.
+  await linkProfileExternalId(user.email, user.id);
+  // Fire the event the "Test Push" flow is triggered by. The flow's webhook action
+  // calls /api/push/send with these properties.
+  await trackEvent(user.email, TEST_PUSH_METRIC, {
+    push_title: "Survivor Assistant",
+    push_body: "🔔 Test via Klaviyo flow — push is working!",
+    push_url: "/",
   });
-  return jsonApi(metaDocument(result));
+  return jsonApi(metaDocument({ queued: true }));
 }
