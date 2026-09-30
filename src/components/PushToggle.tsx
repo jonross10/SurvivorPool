@@ -96,31 +96,28 @@ export default function PushToggle() {
     }
   }
 
-  if (state === "loading" || state === "unsupported") return null;
+  if (state === "loading") return <p className="text-sm text-muted">Checking notifications…</p>;
+  if (state === "unsupported") return <p className="text-sm text-muted">Notifications aren&apos;t supported in this browser.</p>;
+  if (state === "denied") {
+    return <p className="text-sm text-muted">Notifications are blocked. Enable them in your browser settings, then reload.</p>;
+  }
 
   const on = state === "on";
-  const denied = state === "denied";
   return (
-    <div className="flex items-center gap-1">
-      <button
-        onClick={denied ? undefined : on ? disable : enable}
-        disabled={busy || denied}
-        aria-label={on ? "Turn notifications off" : "Turn notifications on"}
-        title={denied ? "Notifications are blocked in your browser settings" : on ? "Notifications on" : "Enable notifications"}
-        className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
-          on ? "text-accent" : "text-muted hover:text-fg"
-        }`}
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill={on ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-          {denied && <path d="M3 3l18 18" stroke="currentColor" />}
-        </svg>
-      </button>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-fg">Push notifications</div>
+          <div className="text-xs text-muted">{on ? "On for this device" : "Off"}</div>
+        </div>
+        <button onClick={on ? disable : enable} disabled={busy} className={on ? "btn-ghost" : "btn-primary"}>
+          {busy ? "…" : on ? "Disable" : "Enable"}
+        </button>
+      </div>
       {/* TEMPORARY test-push button — remove once Klaviyo flows are set up. */}
       {on && (
-        <button onClick={sendTest} disabled={busy} className="text-xs font-semibold text-muted hover:text-fg disabled:opacity-40">
-          Test
+        <button onClick={sendTest} disabled={busy} className="btn-ghost w-full">
+          Send test notification
         </button>
       )}
     </div>
