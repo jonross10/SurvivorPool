@@ -4,7 +4,7 @@ import { nameToId } from "@/lib/entries-util";
 import { winProbFor } from "@/lib/win-prob";
 import { resolveActorUserId } from "@/lib/agent-auth";
 import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
-import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { resource, document, metaDocument, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 interface PickAttrs { entry: string; week: number; team: string; winProb?: number }
 
@@ -15,7 +15,7 @@ async function readAttrs(req: Request): Promise<Partial<PickAttrs>> {
 
 export async function POST(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const { entry, week, team, winProb } = await readAttrs(req);
   // Name lookup is scoped to the actor's own entries, so a resolved id is theirs.
   const entryId = entry ? nameToId(await getEntries(userId))[entry] : undefined;
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const { entry, week } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries(userId))[entry] : undefined;
   if (!entryId || week === undefined) {

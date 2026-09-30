@@ -4,23 +4,12 @@ import { buildRecommendations } from "./recommendations";
 import { buildGameViews } from "./game-views";
 import { getResultsFresh, resultForGame } from "./sources/results";
 import { currentWeek, resolveSeason } from "./week";
-import type { Matchup, TeamStrength, MoneylineGame, GameView, GameResult, Entry } from "./types";
+import { KLAVIYO_BASE as BASE, klaviyoHeaders as headers } from "./klaviyo-http";
+import type { Matchup, TeamStrength, MoneylineGame, GameView, GameResult } from "./types";
 
-const BASE = "https://a.klaviyo.com/api";
 const DATA_SOURCE_ID = "01M3SAT9SKVNGGC852C1S0RVDV";
 const ENTRY_TYPE_ID = "01M3SAVFMNNS65MKS94CFQKX1M";
 const PICK_TYPE_ID = "01M3SAWVZSM1MQR1PRP9YQ3QBK";
-
-function headers(): Record<string, string> {
-  const key = process.env.KLAVIYO_API_KEY;
-  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
-  return {
-    Authorization: `Klaviyo-API-Key ${key}`,
-    revision: "2026-07-15",
-    accept: "application/vnd.api+json",
-    "content-type": "application/vnd.api+json",
-  };
-}
 
 /** Push records into the shared data source (async ingest). Batches of 500. */
 async function pushRecords(records: Record<string, unknown>[]): Promise<void> {
@@ -52,7 +41,7 @@ const WEEKDAY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as co
  * Resolve an entry's recurring pick deadline ({day 0=Sun..6=Sat, time "HH:MM"} in US
  * Eastern) to the next upcoming concrete UTC ISO timestamp. Returns null if unset.
  */
-function weeklyDeadlineISO(pickDue: { day: number; time: string } | null | undefined, now: Date): string | null {
+export function weeklyDeadlineISO(pickDue: { day: number; time: string } | null | undefined, now: Date): string | null {
   if (!pickDue) return null;
   const [hh, mm] = pickDue.time.split(":").map(Number);
   const TZ = "America/New_York";

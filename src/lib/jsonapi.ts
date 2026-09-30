@@ -36,6 +36,11 @@ export function jsonApi(body: unknown, status = 200): NextResponse {
   return NextResponse.json(body, { status, headers: { "content-type": CONTENT_TYPE } });
 }
 
+/** Standard 401 response for routes that require an authenticated actor. */
+export function unauthorized(detail = "Sign in required"): NextResponse {
+  return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail }]), 401);
+}
+
 /** Reads a JSON:API filter param, e.g. getFilter(req, "week") → ?filter[week]=... */
 export function getFilter(req: Request, key: string): string | null {
   return new URL(req.url).searchParams.get(`filter[${key}]`);

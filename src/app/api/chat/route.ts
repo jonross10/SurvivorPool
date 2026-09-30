@@ -1,12 +1,12 @@
 import { createConversation, createResponse, extractAgentMessages, frameForRouting } from "@/lib/klaviyo";
 import { getSessionUser } from "@/lib/session";
-import { errorDocument, jsonApi } from "@/lib/jsonapi";
+import { errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 export async function POST(req: Request) {
   // Chat is per-user: require a session so the conversation can be tied to the
   // signed-in user's Klaviyo profile (and so the agent acts on their behalf).
   const user = await getSessionUser(req);
-  if (!user) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!user) return unauthorized();
   const body = await req.json().catch(() => ({}));
   const message: string = body?.message ?? "";
   let conversationId: string | undefined = body?.conversationId;

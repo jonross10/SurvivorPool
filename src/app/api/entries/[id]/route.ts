@@ -3,12 +3,12 @@ import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings
 import { resolveActorUserId } from "@/lib/agent-auth";
 import { syncOwnerInBackground, deleteEntryRecordsInBackground } from "@/lib/klaviyo-objects";
 import { getPicks } from "@/lib/db/picks-repo";
-import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { metaDocument, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 /** Resolve the actor and confirm they own entry `id`. Returns the user id or a Response. */
 async function authorizeOwner(req: Request, id: string): Promise<string | Response> {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   if ((await getEntryOwner(id)) !== userId) {
     return jsonApi(errorDocument([{ status: "403", title: "Forbidden", detail: "Not your entry" }]), 403);
   }

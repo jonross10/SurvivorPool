@@ -6,12 +6,12 @@ import { getCache } from "@/lib/db/cache-repo";
 import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
 import { currentWeek, resolveSeason } from "@/lib/week";
-import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { resource, document, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 import type { Matchup } from "@/lib/types";
 
 export async function GET(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const week = currentWeek(schedule, new Date());
   const results = await getResultsFresh(week, resolveSeason());
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const body = await req.json().catch(() => ({}));
   const attrs = body?.data?.attributes ?? {};
   const name: string = attrs.name ?? "";

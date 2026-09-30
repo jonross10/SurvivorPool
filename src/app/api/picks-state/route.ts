@@ -3,12 +3,12 @@ import { getPicks } from "@/lib/db/picks-repo";
 import { currentWeek } from "@/lib/week";
 import { getEntries } from "@/lib/db/entries-repo";
 import { resolveActorUserId } from "@/lib/agent-auth";
-import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { resource, document, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 import type { Matchup } from "@/lib/types";
 
 export async function GET(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const cur = currentWeek(schedule, new Date());
   const data = [];

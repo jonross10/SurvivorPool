@@ -3,7 +3,7 @@ import { getEntries } from "@/lib/db/entries-repo";
 import { nameToId } from "@/lib/entries-util";
 import { resolveActorUserId } from "@/lib/agent-auth";
 import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
-import { resource, document, metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { resource, document, metaDocument, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 interface Attrs { entry: string; week: number; outcome: OverrideOutcome }
 
@@ -18,7 +18,7 @@ function isValidWeek(week: unknown): week is number {
 
 export async function POST(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const { entry, week, outcome } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries(userId))[entry] : undefined;
   if (!entryId || !isValidWeek(week) || (outcome !== "survived" && outcome !== "out" && outcome !== "revived")) {
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const { entry, week } = await readAttrs(req);
   const entryId = entry ? nameToId(await getEntries(userId))[entry] : undefined;
   if (!entryId || !isValidWeek(week)) {

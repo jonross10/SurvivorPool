@@ -6,6 +6,7 @@ import { currentWeek, resolveSeason } from "@/lib/week";
 import { getNotifiedResultKeys, markResultNotified } from "@/lib/db/result-notifications-repo";
 import { trackEventByExternalId, PICK_RESULT_METRIC } from "@/lib/klaviyo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { requireCron } from "@/lib/cron-auth";
 import type { Matchup, GameResult, TeamAbbr } from "@/lib/types";
 
 /** Find the completed game for a team in a given week, or null if not final. */
@@ -20,9 +21,8 @@ function finalGame(results: GameResult[], week: number, team: TeamAbbr): GameRes
  * results as notified WITHOUT sending — run once on setup to avoid a backlog blast.
  */
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return jsonApi(errorDocument([{ status: "401", title: "Unauthorized" }]), 401);
-  }
+  const unauth = requireCron(req);
+  if (unauth) return unauth;
   const seed = new URL(req.url).searchParams.get("seed") === "1";
   try {
     const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];

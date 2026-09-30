@@ -1,13 +1,13 @@
 import { getAllOwnerIds } from "@/lib/db/entries-repo";
 import { syncAllOwners } from "@/lib/klaviyo-objects";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { requireCron } from "@/lib/cron-auth";
 
 // Nightly reconcile: re-sync every owner's entries + picks to Klaviyo custom objects,
 // catching derived changes (game scores/results) that don't come through a user write.
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return jsonApi(errorDocument([{ status: "401", title: "Unauthorized" }]), 401);
-  }
+  const unauth = requireCron(req);
+  if (unauth) return unauth;
   try {
     const owners = await getAllOwnerIds();
     await syncAllOwners(owners);

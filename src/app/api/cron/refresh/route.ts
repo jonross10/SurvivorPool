@@ -1,12 +1,12 @@
 import { ingestAll } from "@/lib/sources/ingest";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { requireCron } from "@/lib/cron-auth";
 import { snapshotPregameProbs } from "@/lib/win-prob";
 import { resolveSeason } from "@/lib/week";
 
 export async function GET(req: Request) {
-  if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return jsonApi(errorDocument([{ status: "401", title: "Unauthorized" }]), 401);
-  }
+  const unauth = requireCron(req);
+  if (unauth) return unauth;
   try {
     const result = await ingestAll(
       resolveSeason(),

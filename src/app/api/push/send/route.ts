@@ -1,6 +1,6 @@
 import { sendPushToUser } from "@/lib/push";
 import { getUserIdByEmail } from "@/lib/db/users-repo";
-import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { metaDocument, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 /**
  * Send a web-push notification to a user. Called by Klaviyo Flow webhook actions (or any
@@ -10,7 +10,7 @@ import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 export async function POST(req: Request) {
   const apiKey = process.env.API_KEY;
   if (!apiKey || req.headers.get("x-api-key") !== apiKey) {
-    return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Valid API key required" }]), 401);
+    return unauthorized("Valid API key required");
   }
 
   const body = await req.json().catch(() => ({}));

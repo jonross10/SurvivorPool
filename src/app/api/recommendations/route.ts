@@ -6,13 +6,13 @@ import { getResultsFresh } from "@/lib/sources/results";
 import { getEntryStatuses } from "@/lib/entry-status";
 import { pickResultViews } from "@/lib/elimination";
 import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
-import { resource, document, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { resource, document, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 import { resolveActorUserId } from "@/lib/agent-auth";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
 export async function GET(req: Request) {
   const userId = await resolveActorUserId(req);
-  if (!userId) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!userId) return unauthorized();
   const schedule = (await getCache<Matchup[]>("schedule"))?.payload ?? [];
   const strengths = (await getCache<TeamStrength[]>("fpi"))?.payload ?? [];
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];

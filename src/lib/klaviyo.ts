@@ -1,5 +1,7 @@
-const BASE = "https://a.klaviyo.com/api";
-const REVISION = "2026-07-15.pre";
+import { KLAVIYO_BASE as BASE, KLAVIYO_REVISION_BETA, klaviyoHeaders } from "./klaviyo-http";
+
+// Customer Agent (beta) endpoints use the beta revision; agentHeaders wraps that.
+const agentHeaders = () => klaviyoHeaders(KLAVIYO_REVISION_BETA);
 
 export interface AgentEvent {
   type: string;
@@ -36,17 +38,6 @@ export function frameForRouting(message: string, userId?: string): string {
   );
 }
 
-function headers(): Record<string, string> {
-  const key = process.env.KLAVIYO_API_KEY;
-  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
-  return {
-    Authorization: `Klaviyo-API-Key ${key}`,
-    revision: REVISION,
-    accept: "application/vnd.api+json",
-    "content-type": "application/vnd.api+json",
-  };
-}
-
 function mode(): "preview" | "live" {
   return process.env.KLAVIYO_AGENT_MODE === "live" ? "live" : "preview";
 }
@@ -68,16 +59,9 @@ async function postEvent(
   metricName: string,
   properties: Record<string, unknown>,
 ): Promise<void> {
-  const key = process.env.KLAVIYO_API_KEY;
-  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
   const res = await fetch(`${BASE}/events`, {
     method: "POST",
-    headers: {
-      Authorization: `Klaviyo-API-Key ${key}`,
-      revision: "2026-07-15",
-      accept: "application/vnd.api+json",
-      "content-type": "application/vnd.api+json",
-    },
+    headers: klaviyoHeaders(),
     body: JSON.stringify({
       data: {
         type: "event",
@@ -102,17 +86,6 @@ export async function trackEventByExternalId(externalId: string, metricName: str
   await postEvent({ external_id: externalId }, metricName, properties);
 }
 
-function profilesHeaders(): Record<string, string> {
-  const key = process.env.KLAVIYO_API_KEY;
-  if (!key) throw new Error("KLAVIYO_API_KEY is not set");
-  return {
-    Authorization: `Klaviyo-API-Key ${key}`,
-    revision: "2026-07-15",
-    accept: "application/vnd.api+json",
-    "content-type": "application/vnd.api+json",
-  };
-}
-
 /**
  * Upsert a Klaviyo profile by email: set `external_id` (links to our user) and/or custom
  * `properties` (e.g. push_enabled, which notification flows filter on). Create; on 409
@@ -128,7 +101,7 @@ export async function upsertProfile(
   if (opts.properties) attributes.properties = opts.properties;
   const create = await fetch(`${BASE}/profiles`, {
     method: "POST",
-    headers: profilesHeaders(),
+    headers: klaviyoHeaders(),
     body: JSON.stringify({ data: { type: "profile", attributes } }),
   });
   if (create.status === 201) return;
@@ -141,7 +114,7 @@ export async function upsertProfile(
     if (opts.properties) patch.properties = opts.properties;
     await fetch(`${BASE}/profiles/${id}`, {
       method: "PATCH",
-      headers: profilesHeaders(),
+      headers: klaviyoHeaders(),
       body: JSON.stringify({ data: { type: "profile", id, attributes: patch } }),
     });
   }
@@ -182,7 +155,7 @@ function splitName(name?: string): { first_name?: string; last_name?: string } {
 export async function createConversation(customer: ConversationCustomer): Promise<string> {
   const res = await fetch(`${BASE}/customer-agent-conversations`, {
     method: "POST",
-    headers: headers(),
+    headers: agentHeaders(),
     body: JSON.stringify({
       data: {
         type: "customer-agent-conversation",
@@ -203,7 +176,7 @@ export async function createConversation(customer: ConversationCustomer): Promis
 export async function createResponse(conversationId: string, message: string): Promise<AgentEvent[]> {
   const res = await fetch(`${BASE}/customer-agent-responses`, {
     method: "POST",
-    headers: headers(),
+    headers: agentHeaders(),
     body: JSON.stringify({
       data: {
         type: "customer-agent-response",

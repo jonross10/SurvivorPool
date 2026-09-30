@@ -2,11 +2,11 @@
 // webhook -> /api/push/send -> browser). Remove once real flows are set up.
 import { getSessionUser } from "@/lib/session";
 import { linkProfileExternalId, trackEvent, TEST_PUSH_METRIC } from "@/lib/klaviyo";
-import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { metaDocument, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 export async function POST(req: Request) {
   const user = await getSessionUser(req);
-  if (!user) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!user) return unauthorized();
   if (!user.email) return jsonApi(errorDocument([{ status: "400", title: "No email", detail: "Account has no email" }]), 400);
   // Ensure external_id is linked so the flow can target {{ person.external_id }}.
   await linkProfileExternalId(user.email, user.id);

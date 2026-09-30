@@ -1,7 +1,7 @@
 import { getSessionUser } from "@/lib/session";
 import { saveSubscription, deleteSubscription, type WebPushSubscription } from "@/lib/db/push-repo";
 import { upsertProfile, trackEvent, PUSH_ENABLED_METRIC, PUSH_DISABLED_METRIC } from "@/lib/klaviyo";
-import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
+import { metaDocument, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 
 function isValidSub(s: unknown): s is WebPushSubscription {
   const sub = s as WebPushSubscription;
@@ -12,7 +12,7 @@ function isValidSub(s: unknown): s is WebPushSubscription {
 /** Store the current user's browser push subscription and link their Klaviyo profile. */
 export async function POST(req: Request) {
   const user = await getSessionUser(req);
-  if (!user) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!user) return unauthorized();
   const body = await req.json().catch(() => ({}));
   const sub = body?.subscription;
   if (!isValidSub(sub)) {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 /** Remove a subscription (called when the user turns notifications off). */
 export async function DELETE(req: Request) {
   const user = await getSessionUser(req);
-  if (!user) return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Sign in required" }]), 401);
+  if (!user) return unauthorized();
   const body = await req.json().catch(() => ({}));
   const endpoint = body?.endpoint;
   if (typeof endpoint !== "string") {
