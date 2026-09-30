@@ -25,8 +25,10 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid payload", detail: "title and body are required" }]), 400);
   }
 
-  let userId: string | null = typeof body?.userId === "string" ? body.userId : null;
-  if (!userId && typeof body?.email === "string") userId = await getUserIdByEmail(body.email);
+  // Trim — Klaviyo-templated values can arrive with stray whitespace/newlines.
+  let userId: string | null = typeof body?.userId === "string" ? body.userId.trim() || null : null;
+  if (!userId && typeof body?.email === "string") userId = await getUserIdByEmail(body.email.trim());
+  console.log("[push/send] resolved userId:", JSON.stringify(userId));
   if (!userId) {
     return jsonApi(errorDocument([{ status: "400", title: "Unknown recipient", detail: "userId or a known email is required" }]), 400);
   }
