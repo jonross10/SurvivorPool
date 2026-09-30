@@ -44,6 +44,39 @@ async function pushRecords(records: Record<string, unknown>[]): Promise<void> {
   }
 }
 
+const WEEKDAY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as const;
+
+/**
+ * Resolve an entry's recurring pick deadline ({day 0=Sun..6=Sat, time "HH:MM"} in US
+ * Eastern) to the next upcoming concrete UTC ISO timestamp. Returns null if unset.
+ */
+function weeklyDeadlineISO(pickDue: { day: number; time: string } | null | undefined, now: Date): string | null {
+  if (!pickDue) return null;
+  const [hh, mm] = pickDue.time.split(":").map(Number);
+  const TZ = "America/New_York";
+  const parts = (date: Date) => {
+    const m: Record<string, string> = {};
+    for (const p of new Intl.DateTimeFormat("en-US", {
+      timeZone: TZ, weekday: "short", year: "numeric", month: "2-digit",
+      day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    }).formatToParts(date)) m[p.type] = p.value;
+    return m;
+  };
+  const tzOffsetMs = (date: Date) => {
+    const m = parts(date);
+    return Date.UTC(+m.year, +m.month - 1, +m.day, +m.hour, +m.minute, +m.second) - date.getTime();
+  };
+  for (let i = 0; i < 8; i++) {
+    const probe = new Date(now.getTime() + i * 86400000);
+    const m = parts(probe);
+    if (WEEKDAY[m.weekday as keyof typeof WEEKDAY] !== pickDue.day) continue;
+    const utcGuess = Date.UTC(+m.year, +m.month - 1, +m.day, hh, mm, 0);
+    const instant = utcGuess - tzOffsetMs(new Date(utcGuess));
+    if (instant >= now.getTime() - 60000) return new Date(instant).toISOString();
+  }
+  return null;
+}
+
 function pickResult(team: string, result: GameResult | null): string {
   if (!result) return "pending";
   if (result.inProgress) return "live";
@@ -78,9 +111,6 @@ export async function syncOwner(ownerId: string): Promise<void> {
     buildRecommendations(schedule, strengths, odds, entryContexts, now).map((r) => [r.entry, r]),
   );
 
-  const curViews = buildGameViews(schedule, strengths, odds, week);
-  const earliestKickoff = curViews.map((g) => g.kickoff).filter(Boolean).sort()[0] ?? null;
-
   const viewsByWeek = new Map<number, GameView[]>();
   const gameViewsFor = (w: number) => {
     if (!viewsByWeek.has(w)) viewsByWeek.set(w, buildGameViews(schedule, strengths, odds, w));
@@ -103,7 +133,7 @@ export async function syncOwner(ownerId: string): Promise<void> {
       current_week: week,
       current_pick: currentPick,
       picked_current_week: !!s.picksByWeek[week],
-      pick_due: earliestKickoff,
+      pick_due: weeklyDeadlineISO(e.settings.pick_due, now),
       suggested_pick: rec?.pick ?? "",
       suggested_pick_prob: rec?.prob ?? 0,
       used_teams: Object.values(s.picksByWeek),
