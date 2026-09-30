@@ -13,7 +13,11 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "401", title: "Unauthorized", detail: "Valid API key required" }]), 401);
   }
 
-  const body = await req.json().catch(() => ({}));
+  // TEMP debug: capture exactly what the Klaviyo flow webhook sends.
+  const raw = await req.text();
+  console.log("[push/send] raw body:", raw);
+  let body: Record<string, unknown> = {};
+  try { body = JSON.parse(raw); } catch (e) { console.log("[push/send] JSON parse failed:", e instanceof Error ? e.message : e); }
   const title: unknown = body?.title;
   const message: unknown = body?.body;
   const url: unknown = body?.url;
