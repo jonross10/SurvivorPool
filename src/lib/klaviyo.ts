@@ -103,28 +103,42 @@ function profilesHeaders(): Record<string, string> {
 }
 
 /**
- * Link a Klaviyo profile (by email) to our ULID user id via `external_id`, so flows can
- * reference `{{ person.external_id }}` and push webhooks can target our user directly.
- * Best-effort: upsert by email (create; on 409 PATCH the existing profile).
+ * Upsert a Klaviyo profile by email: set `external_id` (links to our user) and/or custom
+ * `properties` (e.g. push_enabled, which notification flows filter on). Create; on 409
+ * PATCH the existing profile (PATCH merges custom properties, doesn't wipe others).
+ * Best-effort — callers wrap in try/catch.
  */
-export async function linkProfileExternalId(email: string, externalId: string): Promise<void> {
+export async function upsertProfile(
+  email: string,
+  opts: { externalId?: string; properties?: Record<string, unknown> } = {},
+): Promise<void> {
+  const attributes: Record<string, unknown> = { email };
+  if (opts.externalId) attributes.external_id = opts.externalId;
+  if (opts.properties) attributes.properties = opts.properties;
   const create = await fetch(`${BASE}/profiles`, {
     method: "POST",
     headers: profilesHeaders(),
-    body: JSON.stringify({ data: { type: "profile", attributes: { email, external_id: externalId } } }),
+    body: JSON.stringify({ data: { type: "profile", attributes } }),
   });
   if (create.status === 201) return;
   if (create.status === 409) {
     const doc = await create.json().catch(() => ({}));
     const id = doc?.errors?.[0]?.meta?.duplicate_profile_id;
     if (!id) return;
+    const patch: Record<string, unknown> = {};
+    if (opts.externalId) patch.external_id = opts.externalId;
+    if (opts.properties) patch.properties = opts.properties;
     await fetch(`${BASE}/profiles/${id}`, {
       method: "PATCH",
       headers: profilesHeaders(),
-      body: JSON.stringify({ data: { type: "profile", id, attributes: { external_id: externalId } } }),
+      body: JSON.stringify({ data: { type: "profile", id, attributes: patch } }),
     });
   }
-  // Any other status: non-fatal — push still works via userId; we just log upstream if needed.
+}
+
+/** Link a profile to our user id via external_id (thin wrapper over upsertProfile). */
+export async function linkProfileExternalId(email: string, externalId: string): Promise<void> {
+  await upsertProfile(email, { externalId });
 }
 
 /**
