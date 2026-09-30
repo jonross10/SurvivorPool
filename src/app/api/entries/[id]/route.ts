@@ -1,7 +1,8 @@
 import { deleteEntry, updateSettings, renameEntry, getEntryOwner } from "@/lib/db/entries-repo";
 import { EmptyNameError, DuplicateNameError, normalizeSettings, validateSettings } from "@/lib/entries-util";
 import { resolveActorUserId } from "@/lib/agent-auth";
-import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
+import { syncOwnerInBackground, deleteEntryRecordsInBackground } from "@/lib/klaviyo-objects";
+import { getPicks } from "@/lib/db/picks-repo";
 import { metaDocument, errorDocument, jsonApi } from "@/lib/jsonapi";
 
 /** Resolve the actor and confirm they own entry `id`. Returns the user id or a Response. */
@@ -18,7 +19,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const { id } = await params;
   const auth = await authorizeOwner(req, id);
   if (auth instanceof Response) return auth;
+  // Capture the pick weeks before deletion so we can remove the matching Klaviyo records.
+  const weeks = (await getPicks(id)).map((p) => p.week);
   const deleted = await deleteEntry(id);
+  deleteEntryRecordsInBackground(id, weeks);
   syncOwnerInBackground(auth);
   return jsonApi(metaDocument({ deleted }));
 }

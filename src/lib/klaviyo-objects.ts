@@ -8,6 +8,8 @@ import type { Matchup, TeamStrength, MoneylineGame, GameView, GameResult, Entry 
 
 const BASE = "https://a.klaviyo.com/api";
 const DATA_SOURCE_ID = "01M3SAT9SKVNGGC852C1S0RVDV";
+const ENTRY_TYPE_ID = "01M3SAVFMNNS65MKS94CFQKX1M";
+const PICK_TYPE_ID = "01M3SAWVZSM1MQR1PRP9YQ3QBK";
 
 function headers(): Record<string, string> {
   const key = process.env.KLAVIYO_API_KEY;
@@ -170,6 +172,35 @@ export async function syncOwner(ownerId: string): Promise<void> {
   }
 
   await pushRecords(records);
+}
+
+/**
+ * Delete an entry's Klaviyo records (the Entry record + one Pick record per given week).
+ * Call with the entry's pick weeks captured BEFORE the DB rows are removed.
+ */
+export async function deleteEntryRecords(entryId: string, weeks: number[]): Promise<void> {
+  const ids = [
+    `${ENTRY_TYPE_ID}:::${entryId}`,
+    ...weeks.map((w) => `${PICK_TYPE_ID}:::${entryId}:${w}`),
+  ];
+  const res = await fetch(`${BASE}/object-record-bulk-delete-jobs`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      data: {
+        type: "object-record-bulk-delete-job",
+        relationships: { "object-records": { data: ids.map((id) => ({ type: "object-record", id })) } },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Klaviyo record delete failed: ${res.status} ${await res.text()}`);
+}
+
+/** Fire-and-forget delete used by the entry-delete route. */
+export function deleteEntryRecordsInBackground(entryId: string, weeks: number[]): void {
+  deleteEntryRecords(entryId, weeks).catch((e) =>
+    console.error("[klaviyo-objects] delete failed:", e instanceof Error ? e.message : e),
+  );
 }
 
 /** Fire-and-forget sync used by write routes — never blocks or throws into the request. */
