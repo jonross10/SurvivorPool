@@ -57,15 +57,16 @@ export const PUSH_ENABLED_METRIC = "Push Enabled";
 export const PUSH_DISABLED_METRIC = "Push Disabled";
 export const SIGNED_UP_METRIC = "Signed Up";
 export const TEST_PUSH_METRIC = "Test Push Requested";
+export const PICK_RESULT_METRIC = "Pick Result";
 
 /**
  * Track a Klaviyo event on a profile (identified by email, created if needed). Powers
  * flow triggers. `properties` are exposed to the flow as {{ event.<key> }}.
  */
-export async function trackEvent(
-  email: string,
+async function postEvent(
+  profileAttributes: Record<string, unknown>,
   metricName: string,
-  properties: Record<string, unknown> = {},
+  properties: Record<string, unknown>,
 ): Promise<void> {
   const key = process.env.KLAVIYO_API_KEY;
   if (!key) throw new Error("KLAVIYO_API_KEY is not set");
@@ -82,13 +83,23 @@ export async function trackEvent(
         type: "event",
         attributes: {
           metric: { data: { type: "metric", attributes: { name: metricName } } },
-          profile: { data: { type: "profile", attributes: { email } } },
+          profile: { data: { type: "profile", attributes: profileAttributes } },
           properties,
         },
       },
     }),
   });
   if (!res.ok) throw new Error(`Klaviyo event failed: ${res.status} ${await res.text()}`);
+}
+
+/** Track an event on a profile identified by email. */
+export async function trackEvent(email: string, metricName: string, properties: Record<string, unknown> = {}): Promise<void> {
+  await postEvent({ email }, metricName, properties);
+}
+
+/** Track an event on a profile identified by external_id (= our user id). */
+export async function trackEventByExternalId(externalId: string, metricName: string, properties: Record<string, unknown> = {}): Promise<void> {
+  await postEvent({ external_id: externalId }, metricName, properties);
 }
 
 function profilesHeaders(): Record<string, string> {

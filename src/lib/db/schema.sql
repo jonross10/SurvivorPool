@@ -67,3 +67,12 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions (user_id);
+
+-- Dedup for "pick result" notifications: one row per entry-week once its result is sent.
+CREATE TABLE IF NOT EXISTS pick_result_notifications (
+  entry_id    TEXT NOT NULL,
+  week        INTEGER NOT NULL,
+  result      TEXT NOT NULL,
+  notified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (entry_id, week)
+);

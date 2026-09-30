@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/refresh", "schedule": "0 16 * * *" },
-    { "path": "/api/cron/sync-klaviyo", "schedule": "30 16 * * *" }
+    { "path": "/api/cron/sync-klaviyo", "schedule": "30 16 * * *" },
+    { "path": "/api/cron/pick-results", "schedule": "45 16 * * *" }
   ]
 }
