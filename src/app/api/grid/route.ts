@@ -19,7 +19,9 @@ export async function GET(req: Request) {
   const strengths = (await getCache<TeamStrength[]>("fpi"))?.payload ?? [];
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
   const used = await getUsedTeams(entryId);
-  const week = currentWeek(schedule, new Date());
+  // Default to the current week; a ?filter[week]= override lets the agent ask about any week.
+  const wkParam = getFilter(req, "week");
+  const week = wkParam ? Number(wkParam) : currentWeek(schedule, new Date());
   const wps = buildWinProbs(schedule, strengths, odds, week, used);
   const data = wps.map((w) => resource("winprob", `${w.week}:${w.team}`, w));
   return jsonApi(document(data, { week, entry }));

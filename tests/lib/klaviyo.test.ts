@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import { extractAgentMessages, frameForRouting } from "@/lib/klaviyo";
 
 describe("frameForRouting", () => {
-  it("prepends a survivor-pool context tag so routing prefers our skill", () => {
-    expect(frameForRouting("hey")).toBe("(NFL survivor pool assistant) hey");
-    expect(frameForRouting("what should I do?")).toBe("(NFL survivor pool assistant) what should I do?");
+  it("prepends a compact survivor-pool routing tag", () => {
+    expect(frameForRouting("hey")).toBe("(NFL survivor pool) hey");
+  });
+  it("embeds the account id for the agent to pass to tools", () => {
+    expect(frameForRouting("pick?", "user_123")).toBe("(NFL survivor pool · user=user_123) pick?");
   });
 });
 

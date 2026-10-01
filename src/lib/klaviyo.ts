@@ -18,24 +18,16 @@ export function extractAgentMessages(events: AgentEvent[] | undefined): string[]
 }
 
 /**
- * Prepend a survivor-pool context tag to the message we send Klaviyo so its skill
- * router picks our Survivor Strategy skill instead of the prebuilt e-commerce
- * "General Q&A" (which can't be disabled or edited). The UI still shows the user's
- * original text — only the routed copy is tagged.
- *
- * When the user is signed in, we also embed their (server-verified) opaque account id
- * so the agent treats them as pre-authenticated and passes the id to our tools — the
- * Customer Agent API has no shopper-auth mechanism, so we assert it from the trusted
- * host app instead. The id is injected server-side; the client cannot spoof it. We pass
- * the id (not the email) to avoid piping PII through the agent.
+ * Prepend a compact tag so Klaviyo's skill router picks our Survivor Strategy skill (not
+ * the prebuilt "General Q&A") and the agent knows the server-verified account id to pass
+ * to its tools. The verbose "pre-authenticated / never ask to log in / pass as userId"
+ * guidance lives in the skill instructions, not here — so each stored message stays terse.
+ * The id is injected server-side (client can't spoof it); we pass the id, not email (PII).
+ * NOTE: the skill instructions reference this exact `user=<id>` format — keep them in sync.
  */
 export function frameForRouting(message: string, userId?: string): string {
-  if (!userId) return `(NFL survivor pool assistant) ${message}`;
-  return (
-    `(NFL survivor pool assistant — the shopper is already authenticated by the host app; ` +
-    `their account id is ${userId}; never ask them to log in, and pass this account id to ` +
-    `all tool calls.) ${message}`
-  );
+  const tag = userId ? `NFL survivor pool · user=${userId}` : "NFL survivor pool";
+  return `(${tag}) ${message}`;
 }
 
 function mode(): "preview" | "live" {

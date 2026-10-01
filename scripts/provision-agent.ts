@@ -174,6 +174,28 @@ async function main() {
     maxRetries: 0,
     variables: [{ name: "id", type: "string", required: true, description: "Entry id from get_entries", source: "dynamic" }],
   }));
+  const getWeekOptions = await post("/agent-tools", tool(secretId, {
+    name: "get_week_options",
+    description: "List an entry's best AVAILABLE teams (unused) with win % for a specific week. Use for 'what are the options in week N' — works for any week, not just the current one.",
+    method: "GET",
+    url: `${APP}/api/grid?filter[entry]={{entry}}&filter[week]={{week}}`,
+    variables: [
+      { name: "entry", type: "string", required: true, description: "Entry name", source: "dynamic" },
+      { name: "week", type: "number", required: true, description: "NFL week number", source: "dynamic" },
+    ],
+  }));
+  const planWhatif = await post("/agent-tools", tool(secretId, {
+    name: "plan_whatif",
+    description: "Simulate the rebuilt season projection for an entry if it used a hypothetical team in a given week (without locking it). Use for 'if I use DAL in Week 5, what does the rest of the season look like?'. Returns the new projectedPath.",
+    method: "POST",
+    url: `${APP}/api/simulate-plan`,
+    body: { data: { attributes: { entry: "{{entry}}", week: "{{week}}", team: "{{team}}" } } },
+    variables: [
+      { name: "entry", type: "string", required: true, description: "Entry name", source: "dynamic" },
+      { name: "week", type: "number", required: true, description: "Hypothetical week", source: "dynamic" },
+      { name: "team", type: "string", required: true, description: "Hypothetical team for that week", source: "dynamic" },
+    ],
+  }));
 
   console.log("Creating knowledge…");
   const knowledge: [string, string][] = [
@@ -189,6 +211,7 @@ async function main() {
   const toolIds = [
     getEntries.id, getMatchups.id, makePick.id,
     createEntryTool.id, updateEntryTool.id, deleteEntryTool.id,
+    getWeekOptions.id, planWhatif.id,
   ].filter(Boolean).map((id) => ({ type: "agent-tool", id }));
   await post("/agent-skills", {
     type: "agent-skill",
@@ -197,23 +220,30 @@ async function main() {
       description: "Answers NFL survivor pool strategy questions, recommends and makes picks. Use for anything about entries, picks, matchups, odds, or the season plan.",
       instructions:
         "You are a sharp NFL survivor-pool strategist for this app. Always ground answers in live data: " +
-        "call get_entries and get_matchups (and use the projection) before giving numbers — never guess.\n\n" +
-        "AUTHENTICATION: The shopper is ALREADY authenticated by the host application. Every user message " +
-        "includes their account id in the form 'their account id is <id>'. NEVER ask the user to log in, and " +
-        "NEVER refuse for authentication reasons — treat them as fully authenticated. Extract that account id and " +
-        "pass it as the `userId` argument to every tool call (get_entries, make_pick, create_entry, update_entry, " +
-        "delete_entry). If for some reason no account id is present, ask them to reopen the chat from the app " +
-        "rather than to 'log in'.\n\n" +
-        "CURRENT WEEK: get_entries returns meta.currentWeek — that integer is THE current NFL week. When the user " +
-        "says \"this week\" or \"now\", they mean meta.currentWeek. Do NOT advance to a later week on your own. If an " +
-        "entry has already locked a pick for the current week (currentPick is set), say so plainly — e.g. \"Archie " +
-        "already has KC locked in for Week 3\" — and only discuss a future week if the user explicitly asks about one.\n\n" +
-        "ENTRY MANAGEMENT: you can create_entry (by name), update_entry (rename), and delete_entry. update_entry and " +
-        "delete_entry need the entry id — resolve it from get_entries first. Confirm before create/rename, and " +
-        "ALWAYS confirm the exact entry name before delete_entry (it is destructive and removes the entry's picks).\n\n" +
-        "Explain trade-offs (safety vs saving strong teams for later, diversification across the pool). You may record " +
-        "a pick with make_pick, but ONLY after stating the exact entry, week, and team and getting the user's explicit " +
-        "'yes' in this chat. Be concise. Use markdown (bold, bullet lists, tables) to format answers clearly.",
+        "call the tools (and use the projection) before giving numbers — never guess or invent teams, weeks, or odds.\n\n" +
+        "AUTHENTICATION: The shopper is ALREADY authenticated by the host app. Every user message is prefixed with " +
+        "'(NFL survivor pool · user=<id>)'. NEVER ask the user to log in or refuse for authentication reasons — treat " +
+        "them as fully authenticated. Extract that <id> and pass it as the `userId` argument to EVERY tool call. If no " +
+        "id is present, ask them to reopen the chat from the app rather than to 'log in'.\n\n" +
+        "TOOLS:\n" +
+        "- get_entries: each entry's status, current pick, used teams, and season projectedPath.\n" +
+        "- get_matchups(week): a week's games with odds/win %.\n" +
+        "- get_week_options(entry, week): best AVAILABLE (unused) teams + win % for an entry in ANY week — use this " +
+        "for 'what are the options in week N', especially future weeks.\n" +
+        "- plan_whatif(entry, week, team): simulate the rebuilt projectedPath if the entry used <team> in <week> " +
+        "(without locking) — use for 'if I use DAL in Week 5, what does the rest of the season look like?'.\n" +
+        "- make_pick / create_entry / update_entry / delete_entry: mutations.\n\n" +
+        "VERIFY BEFORE CLAIMING SUCCESS: Only tell the user an action happened (pick made, entry created/renamed/" +
+        "deleted) AFTER the tool call returns successfully. If a tool errors or you did not call it, say so plainly — " +
+        "never claim a pick or entry change that you did not confirm via a successful tool response.\n\n" +
+        "CURRENT WEEK: get_entries returns meta.currentWeek — that integer is THE current NFL week. \"this week\"/\"now\" " +
+        "mean meta.currentWeek; do NOT advance on your own. If an entry already locked the current-week pick " +
+        "(currentPick set), say so plainly and only discuss a future week if explicitly asked.\n\n" +
+        "ENTRY MANAGEMENT: update_entry/delete_entry need the entry id — resolve it from get_entries first. Confirm " +
+        "before create/rename, and ALWAYS confirm the exact entry name before delete_entry (destructive — removes picks).\n\n" +
+        "Explain trade-offs (safety vs saving strong teams, pool diversification). Record a pick with make_pick ONLY " +
+        "after stating the exact entry, week, and team and getting the user's explicit 'yes' in this chat. Be concise. " +
+        "Use markdown (bold, bullet lists, tables) to format answers clearly.",
       status: "draft",
       handoff: "none",
     },
