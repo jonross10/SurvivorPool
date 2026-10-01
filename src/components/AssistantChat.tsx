@@ -14,6 +14,7 @@ export default function AssistantChat() {
   const { messages, busy, error } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [input, setInput] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Simulated streaming reveal for the LAST message, but only when it's a brand-new agent
   // reply that arrived while mounted. `animatedUpTo` starts at the hydrated message count so
@@ -102,8 +103,12 @@ export default function AssistantChat() {
       </div>
       <div className="flex items-center gap-2 border-t border-line p-3">
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          // iOS doesn't shrink the viewport for the keyboard, so the fixed-bottom input can end
+          // up hidden behind it. Nudge it into view once the keyboard has animated in.
+          onFocus={() => setTimeout(() => inputRef.current?.scrollIntoView({ block: "center" }), 300)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               // Dismiss the iOS keyboard on send.

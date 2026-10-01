@@ -9,7 +9,7 @@
   --surface-2: #eef3fa;
   --line: #dbe4f0;
   --fg: #0f1b33;           /* deep navy, from the icon */
-  --muted: #64748b;
+  --muted: #4b5565;        /* ~5.7:1 on --bg — meets WCAG AA for small text */
 
   --accent: #2563eb;       /* royal blue brand */
   --accent-fg: #ffffff;    /* text on accent */
@@ -53,15 +53,18 @@ body {
   .field {
     /* text-base (16px) on mobile stops iOS Safari from auto-zooming on focus; 14px on desktop. */
     @apply rounded-lg border border-line bg-surface px-3 py-2 text-base md:text-sm text-fg
-           placeholder:text-muted focus:border-accent focus:outline-none;
+           placeholder:text-muted focus:border-accent focus:outline-none
+           focus:ring-2 focus:ring-accent/40;
   }
   .btn-primary {
     @apply rounded-lg bg-accent px-4 py-2 text-sm font-bold text-accent-fg
-           transition-opacity hover:opacity-90 disabled:opacity-40;
+           transition-opacity hover:opacity-90 disabled:opacity-40
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
   }
   .btn-ghost {
     @apply rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold
-           text-fg transition-colors hover:bg-surface-2 disabled:opacity-40;
+           text-fg transition-colors hover:bg-surface-2 disabled:opacity-40
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
   }
   .pill {
     @apply shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors

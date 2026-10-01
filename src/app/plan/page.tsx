@@ -96,7 +96,7 @@ export default function PlanPage() {
                       key={w}
                       onClick={clickable ? () => modal.open(r.entry, w, r.picksByWeek?.[w]) : undefined}
                       title={proj ? `${Math.round(proj.prob * 100)}% projected` : c.score}
-                      className={`border-b border-r px-1 py-1 text-center align-top ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent" : ""} ${cellClass(c.outcome, c.projected)}`}
+                      className={`h-12 min-w-[56px] border-b border-r px-1 py-1 text-center align-top ${clickable ? "cursor-pointer hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent" : ""} ${cellClass(c.outcome, c.projected)}`}
                     >
                       {c.team ? (
                         <div className="flex flex-col items-center">

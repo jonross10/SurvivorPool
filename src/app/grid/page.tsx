@@ -96,7 +96,7 @@ export default function GridPage() {
                     <td
                       key={w}
                       onClick={() => c && setPending({ team: t, week: w, prob: c.prob })}
-                      className={`border-b border-line px-2 py-1 text-center text-xs ${
+                      className={`h-11 min-w-[44px] border-b border-line px-2 text-center text-xs ${
                         c ? "cursor-pointer text-black hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent" : ""
                       }`}
                       style={{ background: c ? color(c.prob) : "var(--surface-2)" }}
