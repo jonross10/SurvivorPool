@@ -16,6 +16,10 @@ to drift: the two surfaces grow different capabilities, different validation, an
 
 ## Decision
 
+Responses follow the [JSON:API specification](https://jsonapi.org/) (`resource` / `document` /
+error shapes live in `src/lib/jsonapi.ts`, with a matching client in `jsonapi-client.ts`) so both
+clients parse one consistent envelope.
+
 **All state is read and written through JSON:API route handlers under `/api`. There is no
 privileged UI backdoor** — the dashboard uses the same endpoints the agent does. The only thing
 that differs is authentication, resolved in one place by `resolveActorUserId(req)`

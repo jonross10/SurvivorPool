@@ -55,7 +55,8 @@ src/
     jsonapi.ts · jsonapi-client.ts · api-client.ts      JSON:API helpers
   middleware.ts             Page gate (redirects sessionless visitors to /signin)
 scripts/
-  provision-agent.ts        Provisions the Klaviyo Customer Agent (tools + skill)
+  provision-agent.ts        Provisions Klaviyo: Customer Agent (tools + skill),
+                            the magic-link email template, and notification flows
 tests/                      Vitest suites mirroring src/lib + captured fixtures
 docs/                       Architecture notes + ADRs (see above)
 ```

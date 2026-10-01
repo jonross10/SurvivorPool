@@ -1,45 +1,70 @@
 /**
- * One-time Klaviyo Customer Agent provisioning.
- * Run: KLAVIYO_API_KEY=... API_KEY=... APP_BASE_URL=https://survivor-pool-ebon.vercel.app npx tsx scripts/provision-agent.ts
- * Re-runnable: resources that 409 (already exist) are skipped.
+ * One-time Klaviyo provisioning — the source of truth for the Survivor messaging layer:
+ * the Customer Agent (secret, tools, knowledge, skill) AND the supporting email template
+ * and notification flows (Magic Link Sign-In, Pick Result, Pick Reminder).
  *
- * Auth model: every tool authenticates to our app with the shared API key (sent as
- * the X-API-Key header from an encrypted agent-secret) and names the acting user by
- * appending `?email={{email}}` — the email is injected from the conversation's
- * Klaviyo profile. Our /api maps that email to the user and scopes the request.
+ * Run:
+ *   KLAVIYO_API_KEY=... API_KEY=... APP_BASE_URL=https://survivor-pool-ebon.vercel.app \
+ *   FLOW_FROM_EMAIL=you@example.com FLOW_FROM_LABEL="Survivor Assistant" \
+ *   npx tsx scripts/provision-agent.ts
+ *
+ * Re-runnable: agent resources that 409 (already exist) are skipped; the template and flows
+ * are skipped if one with the same name already exists (flow create does NOT 409 on a dup
+ * name, so we check by name first). Klaviyo flow *definitions* can't be PATCHed — to change a
+ * flow, rename/delete the old one in Klaviyo and re-run.
+ *
+ * Auth model: every agent tool authenticates to our app with the shared API key (sent as the
+ * X-API-Key header from an encrypted agent-secret) and names the acting user via `?userId=`,
+ * which the agent reads from the message framing "(NFL survivor pool · user=<id>)". Our /api
+ * maps that id to the user and scopes the request.
  */
 const BASE = "https://a.klaviyo.com/api";
-const REVISION = "2026-07-15.pre";
+const REVISION_BETA = "2026-07-15.pre"; // Customer Agent endpoints (agent-*).
+const REVISION_STABLE = "2026-07-15"; // Flows, templates, metrics.
 const APP = process.env.APP_BASE_URL;
 const KEY = process.env.KLAVIYO_API_KEY;
 const API_KEY = process.env.API_KEY;
+// Sender identity for the magic-link email. Parameterized so no personal address is committed.
+const FROM_EMAIL = process.env.FLOW_FROM_EMAIL ?? "you@example.com";
+const FROM_LABEL = process.env.FLOW_FROM_LABEL ?? "Survivor Assistant";
 if (!KEY || !APP || !API_KEY) {
   console.error("Set KLAVIYO_API_KEY, API_KEY, and APP_BASE_URL");
   process.exit(1);
 }
 
-function klaviyoHeaders(): Record<string, string> {
+function klaviyoHeaders(revision: string = REVISION_BETA): Record<string, string> {
   return {
     Authorization: `Klaviyo-API-Key ${KEY}`,
-    revision: REVISION,
+    revision,
     accept: "application/vnd.api+json",
     "content-type": "application/vnd.api+json",
   };
 }
 
-async function post(path: string, data: unknown): Promise<{ id?: string; status: number }> {
-  const res = await fetch(`${BASE}${path}`, { method: "POST", headers: klaviyoHeaders(), body: JSON.stringify({ data }) });
+async function post(path: string, data: unknown, revision: string = REVISION_BETA): Promise<{ id?: string; status: number }> {
+  const res = await fetch(`${BASE}${path}`, { method: "POST", headers: klaviyoHeaders(revision), body: JSON.stringify({ data }) });
   if (res.status === 409) { console.log(`  (exists) ${path}`); return { status: 409 }; }
   if (!res.ok) { console.error(`  FAILED ${path}: ${res.status} ${await res.text()}`); process.exit(1); }
   const doc = await res.json();
   return { id: doc.data?.id, status: res.status };
 }
 
-async function getFirstIdByName(path: string, name: string): Promise<string | undefined> {
-  const res = await fetch(`${BASE}${path}`, { headers: klaviyoHeaders() });
+async function getFirstIdByName(path: string, name: string, revision: string = REVISION_BETA): Promise<string | undefined> {
+  const res = await fetch(`${BASE}${path}`, { headers: klaviyoHeaders(revision) });
   if (!res.ok) return undefined;
   const doc = await res.json();
   return (doc.data ?? []).find((d: { attributes?: { name?: string } }) => d.attributes?.name === name)?.id;
+}
+
+/**
+ * Resolve a metric id by exact name (metrics are created implicitly when first tracked).
+ * `name` isn't a filterable field on /metrics, so we list and match client-side.
+ */
+async function getMetricId(name: string): Promise<string | undefined> {
+  const res = await fetch(`${BASE}/metrics`, { headers: klaviyoHeaders(REVISION_STABLE) });
+  if (!res.ok) return undefined;
+  const doc = await res.json();
+  return (doc.data ?? []).find((m: { attributes?: { name?: string } }) => m.attributes?.name === name)?.id;
 }
 
 // --- Shared auth wiring for every tool -------------------------------------------
@@ -55,8 +80,8 @@ const USER_ID_VAR = {
   type: "string",
   required: true,
   description:
-    "The authenticated user's account id, provided verbatim in the message context " +
-    "(look for 'their account id is <id>'). Pass it exactly.",
+    "The authenticated user's account id, provided verbatim in the message framing " +
+    "'(NFL survivor pool · user=<id>)'. Pass it exactly.",
   source: "dynamic",
 };
 
@@ -250,6 +275,185 @@ async function main() {
     relationships: toolIds.length ? { "agent-tools": { data: toolIds } } : undefined,
   });
 
-  console.log("Done. Review the skill in Klaviyo and set status=live when ready.");
+  console.log("Review the skill in Klaviyo and set status=live when ready.");
+
+  await provisionFlows();
+  console.log("Done.");
 }
+
+// ── Email template + notification flows ──────────────────────────────────────────
+// Flows live in Klaviyo but are defined here so they're reproducible and version-controlled.
+// Their purposes are documented in docs/klaviyo.md.
+
+const MAGIC_LINK_TEMPLATE_NAME = "Survivor — Magic Link";
+
+/** The magic-link email body. {{ event.magic_link_url }} is supplied by the Magic Link Requested event. */
+const MAGIC_LINK_HTML = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><meta content="width=device-width" name="viewport"/></head>
+<body style="margin:0;padding:0;background:#f5f8fd;">
+<table cellpadding="0" cellspacing="0" role="presentation" style="background:#f5f8fd;padding:32px 12px;" width="100%">
+<tr><td align="center">
+<table cellpadding="0" cellspacing="0" role="presentation" style="max-width:460px;width:100%;background:#ffffff;border:1px solid #dbe4f0;border-radius:16px;overflow:hidden;" width="460">
+<tr><td align="center" style="padding:28px 32px 8px 32px;">
+<div style="font-family:'Arial Black',Impact,Arial,sans-serif;font-weight:900;font-size:26px;letter-spacing:1px;color:#0f1b33;text-transform:uppercase;">SURVIVOR<span style="color:#2563eb;">.</span></div>
+</td></tr>
+<tr><td align="center" style="padding:16px 32px 0 32px;">
+<h1 style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:700;color:#0f1b33;">Your sign-in link</h1>
+</td></tr>
+<tr><td align="center" style="padding:12px 32px 0 32px;">
+<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#64748b;">Tap the button below to sign in to Survivor Assistant. This link expires in <strong style="color:#0f1b33;">15 minutes</strong> and can only be used once.</p>
+</td></tr>
+<tr><td align="center" style="padding:24px 32px 8px 32px;">
+<a href="{{ event.magic_link_url }}" style="display:inline-block;background:#2563eb;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:10px;">Sign in</a>
+</td></tr>
+<tr><td align="center" style="padding:16px 32px 0 32px;">
+<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#94a3b8;">Or paste this link into your browser:<br/><a href="{{ event.magic_link_url }}" style="color:#2563eb;word-break:break-all;">{{ event.magic_link_url }}</a></p>
+</td></tr>
+<tr><td align="center" style="padding:24px 32px 28px 32px;border-top:1px solid #eef3fa;margin-top:16px;">
+<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#94a3b8;">If you didn't request this, you can safely ignore this email.</p>
+</td></tr>
+</table>
+</td></tr>
+</table></body></html>`;
+
+const MAGIC_LINK_TEXT =
+  "Sign in to Survivor Assistant.\n\nTap this link (expires in 15 minutes, one-time use):\n" +
+  "{{ event.magic_link_url }}\n\nIf you didn't request this, ignore this email.";
+
+const ENTRY_OBJECT_TYPE_ID = "01M3SAVFMNNS65MKS94CFQKX1M";
+const ENTRY_OBJECT_RELATIONSHIP_ID = "01M3SAZX8CC95RD1K88CZNTCD4";
+const PUSH_SEND_URL = `${APP}/api/push/send`;
+const WEBHOOK_HEADERS = { "X-API-Key": API_KEY!, "Content-Type": "application/json" };
+
+/** Profile filter: only profiles that have opted into web push. */
+const PUSH_ENABLED_FILTER = {
+  condition_groups: [
+    { conditions: [{ type: "profile-property", property: "properties['push_enabled']", filter: { type: "boolean", operator: "equals", value: true } }] },
+  ],
+};
+const EVERY_DAY = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+/** Create a flow by name if one doesn't already exist (flow create does not 409 on dup names). */
+async function ensureFlow(name: string, definition: unknown): Promise<void> {
+  const existing = await getFirstIdByName("/flows?page[size]=50", name, REVISION_STABLE);
+  if (existing) { console.log(`  (exists) flow "${name}"`); return; }
+  await post("/flows", { type: "flow", attributes: { name, definition } }, REVISION_STABLE);
+  console.log(`  created flow "${name}"`);
+}
+
+async function provisionFlows(): Promise<void> {
+  console.log("Creating email template…");
+  let templateId = await getFirstIdByName("/templates", MAGIC_LINK_TEMPLATE_NAME, REVISION_STABLE);
+  if (templateId) {
+    console.log(`  (exists) template "${MAGIC_LINK_TEMPLATE_NAME}"`);
+  } else {
+    const res = await post("/templates", {
+      type: "template",
+      attributes: { name: MAGIC_LINK_TEMPLATE_NAME, editor_type: "CODE", html: MAGIC_LINK_HTML, text: MAGIC_LINK_TEXT },
+    }, REVISION_STABLE);
+    templateId = res.id;
+    console.log(`  created template "${MAGIC_LINK_TEMPLATE_NAME}"`);
+  }
+
+  console.log("Resolving trigger metrics…");
+  const magicLinkMetric = await getMetricId("Magic Link Requested");
+  const pickResultMetric = await getMetricId("Pick Result");
+  if (!magicLinkMetric || !pickResultMetric) {
+    console.warn(
+      "  ⚠ Metric(s) not found: " +
+        [["Magic Link Requested", magicLinkMetric], ["Pick Result", pickResultMetric]]
+          .filter(([, v]) => !v).map(([n]) => n).join(", ") +
+        ". Trigger the event once from the app so the metric exists, then re-run — skipping those flows.",
+    );
+  }
+
+  console.log("Creating flows…");
+  // 1. Magic Link Sign-In — metric-triggered transactional email with the sign-in link.
+  if (magicLinkMetric && templateId) {
+    await ensureFlow("Magic Link Sign-In", {
+      triggers: [{ type: "metric", id: magicLinkMetric, trigger_filter: null }],
+      profile_filter: { condition_groups: [{ conditions: [] }] },
+      actions: [{
+        temporary_id: "send_email",
+        type: "send-email",
+        data: {
+          message: {
+            from_email: FROM_EMAIL,
+            from_label: FROM_LABEL,
+            reply_to_email: FROM_EMAIL,
+            subject_line: "Your Survivor sign-in link",
+            preview_text: "Your one-time sign-in link (expires in 15 minutes).",
+            template_id: templateId,
+            smart_sending_enabled: false,
+            transactional: false,
+            add_tracking_params: false,
+            name: "Magic Link Email",
+          },
+          status: "live",
+        },
+        links: { next: null },
+      }],
+    });
+  }
+
+  // 2. Pick Result — metric-triggered push to opted-in profiles when a picked game goes final.
+  if (pickResultMetric) {
+    await ensureFlow("Pick Result", {
+      triggers: [{ type: "metric", id: pickResultMetric, trigger_filter: null }],
+      profile_filter: PUSH_ENABLED_FILTER,
+      actions: [{
+        temporary_id: "push",
+        type: "send-webhook",
+        data: {
+          message: {
+            url: PUSH_SEND_URL,
+            headers: WEBHOOK_HEADERS,
+            body: JSON.stringify({ userId: "{{ event.user_id }}", title: "{{ event.push_title }}", body: "{{ event.push_body }}", url: "{{ event.push_url }}" }),
+            name: "Send pick-result push",
+          },
+          status: "live",
+        },
+        links: { next: null },
+      }],
+    });
+  }
+
+  // 3. Pick Reminder — date-triggered off each Entry's pick_due; nudges profiles who haven't
+  //    locked in. A date-triggered flow MUST begin with a target-date action.
+  await ensureFlow("Pick Reminder", {
+    triggers: [{
+      type: "date",
+      date_field_type: "custom-object",
+      custom_object_label: "Entry: pick_due",
+      custom_object_property_id: 8,
+      object_type_id: ENTRY_OBJECT_TYPE_ID,
+      object_type_relationship_id: ENTRY_OBJECT_RELATIONSHIP_ID,
+      timedelta_unit_before_date: "days",
+      timedelta_value_before_date: 0,
+      recurrence_frequency: "never",
+      timezone: "profile",
+      trigger_time: "11:00:00",
+      trigger_days: EVERY_DAY,
+    }],
+    profile_filter: PUSH_ENABLED_FILTER,
+    actions: [
+      { temporary_id: "target", type: "target-date", data: { timezone: "profile", target_time: "11:00:00", target_days: EVERY_DAY }, links: { next: "push" } },
+      {
+        temporary_id: "push",
+        type: "send-webhook",
+        data: {
+          message: {
+            url: PUSH_SEND_URL,
+            headers: WEBHOOK_HEADERS,
+            body: JSON.stringify({ email: "{{ person.email }}", title: "Survivor pick reminder", body: "Your pick deadline is coming up and you haven't locked in yet. Tap to pick.", url: "/matchups" }),
+            name: "Send pick-reminder push",
+          },
+          status: "live",
+        },
+        links: { next: null },
+      },
+    ],
+  });
+}
+
 main();

@@ -50,8 +50,11 @@ See [`../klaviyo.md`](../klaviyo.md) for the concrete wiring.
 - State is duplicated (Postgres is the source of truth; Klaviyo is a mirror), so sync drift is
   possible. Mitigated by stable record ids (upsert, not duplicate) and a nightly `sync-klaviyo`
   reconcile cron.
-- Flow and skill definitions live **in Klaviyo**, outside this repo and outside version control.
-  The agent's tools/skill are at least reproducible via `scripts/provision-agent.ts`, but flows
-  are configured in the Klaviyo UI and aren't captured here.
+- The live Klaviyo account is the system of record for these resources, but their definitions
+  are codified in `scripts/provision-agent.ts` (agent secret/tools/knowledge/skill, the
+  magic-link email template, and all three notification flows), so they're reproducible and
+  version-controlled rather than click-configured. The one gap: Klaviyo flow *definitions* can't
+  be PATCHed via API, so changing a flow means recreating it — the script creates, it doesn't
+  reconcile edits in place.
 - Uses beta Klaviyo APIs (Customer Agent, Custom Objects) pinned to specific revisions in
   `klaviyo-http.ts`; revisions may change under us.

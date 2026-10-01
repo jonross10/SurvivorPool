@@ -17,7 +17,7 @@ For *why* Klaviyo is the integration spine rather than a bespoke notification se
 | `src/lib/klaviyo-http.ts` | Base URL, API revisions (`2026-07-15` stable, `2026-07-15.pre` beta), and `klaviyoHeaders(revision)`. |
 | `src/lib/klaviyo.ts` | Events/profiles (`trackEvent`, `upsertProfile`, `linkProfileExternalId`), magic-link email, the Customer Agent conversation/response calls, and `frameForRouting`. |
 | `src/lib/klaviyo-objects.ts` | Custom Objects sync: map entries/picks to records, push via bulk jobs, and delete records. |
-| `scripts/provision-agent.ts` | One-shot provisioner for the agent's tools + skill. |
+| `scripts/provision-agent.ts` | One-shot provisioner — the source of truth for the agent (secret, tools, knowledge, skill), the magic-link email template, and the three notification flows. |
 
 ## Identity model
 
@@ -76,18 +76,27 @@ projected path; each Pick record carries the matchup, win prob, and result.
 
 ## 3. Notification flows
 
-Events tracked from the app trigger Klaviyo flows (built in Klaviyo, not in this repo). Metric
-names live in `klaviyo.ts`:
+The app tracks Klaviyo **events** (metric names in `klaviyo.ts`); flows react to them. The three
+live flows and the magic-link email **template** are defined in `scripts/provision-agent.ts`, so
+they're reproducible and version-controlled rather than click-configured. The script is
+idempotent — it resolves the template/metrics/flows by name and skips anything that already
+exists. (Klaviyo flow *definitions* can't be PATCHed; to change one, rename/delete it in Klaviyo
+and re-run.) Sender identity for the email is parameterized via `FLOW_FROM_EMAIL` /
+`FLOW_FROM_LABEL`, and the webhook `X-API-Key` comes from the app's `API_KEY`.
 
-| Metric | Fired when | Flow does |
-| --- | --- | --- |
-| `Magic Link Requested` | User requests a passwordless link | Emails `{{ event.magic_link_url }}` (link valid 15 min). |
-| `Signed Up` | Account created | Welcome / onboarding. |
-| `Push Enabled` / `Push Disabled` | User toggles web push | Bookkeeping / confirmation. |
-| `Pick Result` | A picked game goes final (see below) | Notifies the owner their entry survived/lost. |
+| Flow | Trigger | Profile filter | Action |
+| --- | --- | --- | --- |
+| **Magic Link Sign-In** | metric `Magic Link Requested` | none | `send-email` using the *Survivor — Magic Link* template; renders `{{ event.magic_link_url }}` (valid 15 min). |
+| **Pick Result** | metric `Pick Result` (fired when a picked game goes final) | `push_enabled = true` | `send-webhook` → `/api/push/send` with `{{ event.user_id }}` + title/body/url, delivering a web-push notification. |
+| **Pick Reminder** | date-based off the Entry object's `pick_due` property | `push_enabled = true` | `target-date` → `send-webhook` → `/api/push/send` (by `{{ person.email }}`), nudging owners who haven't locked in. |
 
-A date-triggered reminder flow uses the Entry object's `pick_due` (a recurring weekly deadline
-resolved to a concrete UTC timestamp by `weeklyDeadlineISO`).
+`pick_due` is a recurring weekly deadline resolved to a concrete UTC timestamp by
+`weeklyDeadlineISO` and synced onto the Entry object (see §2). A date-triggered flow must begin
+with a `target-date` action, which is why Pick Reminder has two steps.
+
+Other events are tracked today but **don't have flows yet** — they're available to build on:
+`Signed Up` (account created, with a `method` of `google`/`magic_link`), and
+`Push Enabled` / `Push Disabled` (web-push toggles).
 
 ## 4. Web push
 
