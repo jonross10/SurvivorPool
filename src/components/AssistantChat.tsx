@@ -1,93 +1,51 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { subscribe, getSnapshot, getServerSnapshot, send, reset } from "./assistant-store";
 
-interface Msg { role: "user" | "agent"; text: string; streaming?: boolean }
-
-const CONV_KEY = "assistant_conversation_id";
-const MSGS_KEY = "assistant_messages";
 // Characters revealed per tick while simulating a streaming response.
 const REVEAL_CHARS = 3;
 const REVEAL_MS = 16;
 
 export default function AssistantChat() {
-  const [messages, setMessages] = useState<Msg[]>([]);
+  // The conversation lives in a module-level store (assistant-store.ts) so the request
+  // lifecycle survives navigating away and back — this component is just a view over it.
+  const { messages, busy, error } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
-  const convId = useRef<string | undefined>(undefined);
   const bottom = useRef<HTMLDivElement>(null);
 
-  // Hydrate a prior conversation from localStorage so closing the panel (or the
-  // tab) doesn't lose history.
-  useEffect(() => {
-    convId.current = localStorage.getItem(CONV_KEY) ?? undefined;
-    try {
-      const saved = localStorage.getItem(MSGS_KEY);
-      if (saved) setMessages(JSON.parse(saved) as Msg[]);
-    } catch { /* ignore corrupt storage */ }
-    setHydrated(true);
-  }, []);
+  // Simulated streaming reveal for the LAST message, but only when it's a brand-new agent
+  // reply that arrived while mounted. `animatedUpTo` starts at the hydrated message count so
+  // pre-existing history (and replies that landed while we were on another tab) just appear.
+  const [reveal, setReveal] = useState<{ idx: number; chars: number } | null>(null);
+  const animatedUpTo = useRef<number | null>(null);
 
-  // Persist completed messages. Skip while a reply is still streaming in so we
-  // store the final text, not a half-revealed frame.
   useEffect(() => {
-    if (!hydrated) return;
-    if (messages.some((m) => m.streaming)) return;
-    localStorage.setItem(MSGS_KEY, JSON.stringify(messages));
-  }, [messages, hydrated]);
+    if (animatedUpTo.current === null) { animatedUpTo.current = messages.length; return; }
+    if (messages.length <= animatedUpTo.current) { animatedUpTo.current = messages.length; return; }
+    animatedUpTo.current = messages.length;
+    const idx = messages.length - 1;
+    const last = messages[idx];
+    if (!last || last.role !== "agent") { setReveal(null); return; }
+    const full = last.text.length;
+    let shown = 0;
+    setReveal({ idx, chars: 0 });
+    const timer = setInterval(() => {
+      shown = Math.min(full, shown + REVEAL_CHARS);
+      setReveal({ idx, chars: shown });
+      if (shown >= full) { clearInterval(timer); setReveal(null); }
+    }, REVEAL_MS);
+    return () => clearInterval(timer);
+  }, [messages]);
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, busy]);
 
-  // Reveal an agent message gradually to simulate streaming.
-  function streamIn(full: string) {
-    let shown = 0;
-    setMessages((m) => [...m, { role: "agent", text: "", streaming: true }]);
-    const timer = setInterval(() => {
-      shown = Math.min(full.length, shown + REVEAL_CHARS);
-      const done = shown >= full.length;
-      setMessages((m) => {
-        const next = [...m];
-        next[next.length - 1] = { role: "agent", text: full.slice(0, shown), streaming: !done };
-        return next;
-      });
-      if (done) clearInterval(timer);
-    }, REVEAL_MS);
-  }
-
-  function reset() {
-    setMessages([]);
-    setError(null);
-    convId.current = undefined;
-    localStorage.removeItem(CONV_KEY);
-    localStorage.removeItem(MSGS_KEY);
-  }
-
-  async function send() {
+  function onSend() {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
-    setError(null);
-    setMessages((m) => [...m, { role: "user", text }]);
-    setBusy(true);
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: text, conversationId: convId.current }),
-      });
-      const doc = await res.json();
-      if (!res.ok) throw new Error(doc?.errors?.[0]?.detail ?? "Assistant error");
-      convId.current = doc.conversationId;
-      if (doc.conversationId) localStorage.setItem(CONV_KEY, doc.conversationId);
-      for (const t of (doc.messages ?? []) as string[]) streamIn(t);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Assistant error");
-    } finally {
-      setBusy(false);
-    }
+    void send(text);
   }
 
   return (
@@ -108,22 +66,26 @@ export default function AssistantChat() {
             Ask about picks, matchups, or your season plan.
           </p>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            {m.role === "user" ? (
-              <span className="inline-block max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
-                {m.text}
-              </span>
-            ) : (
-              <div className="inline-block max-w-[85%] overflow-hidden break-words rounded-2xl bg-surface-2 px-3 py-2 text-sm text-fg">
-                <div className="assistant-md">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+        {messages.map((m, i) => {
+          const text = reveal && reveal.idx === i ? m.text.slice(0, reveal.chars) : m.text;
+          const streaming = !!reveal && reveal.idx === i;
+          return (
+            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              {m.role === "user" ? (
+                <span className="inline-block max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
+                  {m.text}
+                </span>
+              ) : (
+                <div className="inline-block max-w-[85%] overflow-hidden break-words rounded-2xl bg-surface-2 px-3 py-2 text-sm text-fg">
+                  <div className="assistant-md">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+                  </div>
+                  {streaming && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-muted align-middle" />}
                 </div>
-                {m.streaming && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-muted align-middle" />}
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
         {busy && <p className="text-sm text-muted">Thinking…</p>}
         {error && <p className="text-sm text-danger">{error}</p>}
         <div ref={bottom} />
@@ -132,11 +94,11 @@ export default function AssistantChat() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
+          onKeyDown={(e) => e.key === "Enter" && onSend()}
           placeholder="Ask the assistant…"
           className="field flex-1"
         />
-        <button onClick={send} disabled={busy} className="btn-primary">
+        <button onClick={onSend} disabled={busy} className="btn-primary">
           Send
         </button>
       </div>
