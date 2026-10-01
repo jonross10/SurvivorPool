@@ -62,6 +62,28 @@ export function getServerSnapshot(): AssistantState {
   return EMPTY;
 }
 
+/**
+ * Reconcile local state with the server transcript (Klaviyo's system of record). Recovers a
+ * reply whose POST response was lost — e.g. the page was evicted/reloaded mid-request (common
+ * for a backgrounded iOS PWA). Only replaces when the server has at least as many messages as
+ * we do, so an in-flight optimistic user message is never clobbered, and never while busy.
+ */
+export async function reconcile(): Promise<void> {
+  ensureLoaded();
+  if (busy || !convId) return;
+  try {
+    const res = await fetch(`/api/chat?conversationId=${encodeURIComponent(convId)}`);
+    if (!res.ok) return;
+    const doc = await res.json();
+    const server = (doc.messages ?? []) as Msg[];
+    if (server.length >= messages.length && JSON.stringify(server) !== JSON.stringify(messages)) {
+      messages = server;
+      persist();
+      emit();
+    }
+  } catch { /* offline / transient — keep local */ }
+}
+
 /** Send a user message and fetch the agent's reply. Safe to fire-and-forget. */
 export async function send(text: string): Promise<void> {
   ensureLoaded();

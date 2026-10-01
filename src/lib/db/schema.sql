@@ -68,6 +68,16 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions (user_id);
 
+-- Maps a Klaviyo Customer Agent conversation to the user who owns it, so a transcript read
+-- (GET /api/chat?conversationId=) can be authorized to that user. We store only the mapping,
+-- not the messages — Klaviyo is the system of record for the transcript itself.
+CREATE TABLE IF NOT EXISTS chat_conversations (
+  conversation_id TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS chat_conversations_user_id_idx ON chat_conversations (user_id);
+
 -- Dedup for "pick result" notifications: one row per entry-week once its result is sent.
 CREATE TABLE IF NOT EXISTS pick_result_notifications (
   entry_id    TEXT NOT NULL,

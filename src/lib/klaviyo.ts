@@ -30,6 +30,20 @@ export function frameForRouting(message: string, userId?: string): string {
   return `(${tag}) ${message}`;
 }
 
+/**
+ * Inverse of frameForRouting for display: strip the leading "(NFL survivor pool …)" framing
+ * from a stored user message so the UI shows what the user actually typed. Only strips when
+ * the message starts with our marker (both the current and the old verbose framing begin with
+ * "(NFL survivor pool" and contain no inner ")" ), so a user message that merely opens with an
+ * unrelated parenthetical is left alone.
+ */
+export function stripFraming(message: string): string {
+  if (!message.startsWith("(NFL survivor pool")) return message;
+  const close = message.indexOf(")");
+  if (close === -1) return message;
+  return message.slice(close + 1).replace(/^\s+/, "");
+}
+
 function mode(): "preview" | "live" {
   return process.env.KLAVIYO_AGENT_MODE === "live" ? "live" : "preview";
 }
@@ -162,6 +176,26 @@ export async function createConversation(customer: ConversationCustomer): Promis
   if (!res.ok) throw new Error(`Klaviyo conversation create failed: ${res.status}`);
   const doc = await res.json();
   return doc.data.id as string;
+}
+
+export interface ConversationMessage { role: "user" | "agent"; content: string }
+
+/**
+ * Fetch a conversation's full message history (its system of record lives at Klaviyo). The
+ * messages are the `customer-agent-messages` related collection on the conversation — note the
+ * conversation's own attributes are only status/timestamps, so this nested endpoint is the only
+ * way to read the transcript. Lets the client recover a reply whose POST response was lost (e.g.
+ * the iOS PWA was evicted mid-request) by reconciling from the server on mount.
+ */
+export async function getConversationMessages(conversationId: string): Promise<ConversationMessage[]> {
+  const res = await fetch(`${BASE}/customer-agent-conversations/${conversationId}/customer-agent-messages`, {
+    headers: agentHeaders(),
+  });
+  if (!res.ok) throw new Error(`Klaviyo conversation fetch failed: ${res.status}`);
+  const doc = await res.json();
+  return ((doc.data ?? []) as { attributes?: { role?: string; content?: string } }[])
+    .filter((m) => (m.attributes?.role === "user" || m.attributes?.role === "agent") && typeof m.attributes?.content === "string")
+    .map((m) => ({ role: m.attributes!.role as "user" | "agent", content: m.attributes!.content as string }));
 }
 
 /** Send a user message to an existing conversation; returns the agent's reply events. */

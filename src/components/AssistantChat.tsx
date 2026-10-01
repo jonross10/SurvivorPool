@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { subscribe, getSnapshot, getServerSnapshot, send, reset } from "./assistant-store";
+import { subscribe, getSnapshot, getServerSnapshot, send, reset, reconcile } from "./assistant-store";
 
 // Characters revealed per tick while simulating a streaming response.
 const REVEAL_CHARS = 3;
@@ -40,6 +40,16 @@ export default function AssistantChat() {
   }, [messages]);
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, busy]);
+
+  // Reconcile with the server transcript on mount and whenever the app returns to the
+  // foreground — this is what recovers a reply if the page was evicted/suspended mid-request
+  // (e.g. an iOS PWA backgrounded while the assistant was still thinking).
+  useEffect(() => {
+    void reconcile();
+    const onVisible = () => { if (document.visibilityState === "visible") void reconcile(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   function onSend() {
     const text = input.trim();

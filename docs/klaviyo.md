@@ -35,6 +35,19 @@ The in-app chat (`/assistant`, `src/components/AssistantChat.tsx`) posts to `/ap
 creates/continues a **Customer Agent conversation** tied to the signed-in user's profile and
 returns the agent's replies.
 
+**Durability / reconcile.** The conversation lives in a module-level store
+(`assistant-store.ts`) so an in-flight request survives in-app navigation. For the harder case —
+the page dying mid-request (an iOS home-screen PWA evicted while backgrounded) — the agent reply
+would otherwise be lost, since it only arrives as the POST response. Klaviyo is the system of
+record: `getConversationMessages` reads the transcript from
+`GET /customer-agent-conversations/{id}/customer-agent-messages` (the messages are a *relationship*
+on the conversation, not in its attributes). `GET /api/chat?conversationId=` exposes that
+transcript to the owner (authorized via the `chat_conversations` id→user mapping written on
+create), stripping the routing framing off stored user messages. The client calls it on mount
+and on return-to-foreground, so a reply that landed while the page was gone is recovered. (If iOS
+kills the page before the POST even leaves the device, Klaviyo never received it — nothing to
+recover, but no duplicate either.)
+
 **Routing + auth framing.** `frameForRouting(message, userId)` prefixes every outgoing message
 with `(NFL survivor pool · user=<id>)`. This does two jobs: it steers Klaviyo's skill router to
 our *survivor-strategy* skill (not the prebuilt General Q&A), and it carries the server-verified

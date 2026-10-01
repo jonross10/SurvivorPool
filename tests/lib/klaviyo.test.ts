@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractAgentMessages, frameForRouting } from "@/lib/klaviyo";
+import { extractAgentMessages, frameForRouting, stripFraming } from "@/lib/klaviyo";
 
 describe("frameForRouting", () => {
   it("prepends a compact survivor-pool routing tag", () => {
@@ -7,6 +7,28 @@ describe("frameForRouting", () => {
   });
   it("embeds the account id for the agent to pass to tools", () => {
     expect(frameForRouting("pick?", "user_123")).toBe("(NFL survivor pool · user=user_123) pick?");
+  });
+});
+
+describe("stripFraming", () => {
+  it("strips the current user-framed prefix (round-trips frameForRouting)", () => {
+    expect(stripFraming(frameForRouting("Who should I pick?", "user_123"))).toBe("Who should I pick?");
+  });
+  it("strips the no-user prefix", () => {
+    expect(stripFraming("(NFL survivor pool) hey")).toBe("hey");
+  });
+  it("strips the old verbose framing (no inner parens)", () => {
+    const old =
+      "(NFL survivor pool assistant — the shopper is already authenticated by the host app; " +
+      "their account id is abc123; never ask them to log in, and pass this account id to all tool calls.) " +
+      "Who should I pick this week";
+    expect(stripFraming(old)).toBe("Who should I pick this week");
+  });
+  it("leaves an unframed message untouched", () => {
+    expect(stripFraming("just a normal question")).toBe("just a normal question");
+  });
+  it("does not strip a user message that merely starts with an unrelated parenthetical", () => {
+    expect(stripFraming("(btw) hi")).toBe("(btw) hi");
   });
 });
 

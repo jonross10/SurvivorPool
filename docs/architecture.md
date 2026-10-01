@@ -58,6 +58,7 @@ EXISTS` + additive `ALTER`s) and applied by `npm run migrate`.
 - **`pick_overrides`** — manual `survived` / `out` / `revived` outcomes per entry-week.
 - **`push_subscriptions`** — one row per browser/device that enabled web push.
 - **`pick_result_notifications`** — dedup ledger so each entry-week result notification sends once.
+- **`chat_conversations`** — maps a Klaviyo Customer Agent `conversation_id` to its owning user, so the assistant transcript read can be authorized (Klaviyo holds the messages themselves).
 - **`cache`** — key → JSONB snapshot of each ingested source.
 
 The repos (`entries-repo`, `picks-repo`, `users-repo`, `push-repo`, `cache-repo`,
