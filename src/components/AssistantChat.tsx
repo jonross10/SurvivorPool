@@ -104,7 +104,13 @@ export default function AssistantChat() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSend()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              // Dismiss the iOS keyboard on send.
+              (e.currentTarget as HTMLInputElement).blur();
+              onSend();
+            }
+          }}
           placeholder="Ask the assistant…"
           className="field flex-1"
         />

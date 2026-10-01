@@ -13,7 +13,9 @@ export function usePickModal(reload: () => void) {
   async function open(entry: string, week: number, current?: string) {
     setModal({ entry, week, current });
     setWps([]);
-    const doc = await (await fetch(`/api/grid?filter[entry]=${encodeURIComponent(entry)}`)).json();
+    // Fetch the grid for the SPECIFIC week being picked (not just the current week), so past
+    // weeks are fillable too — e.g. backfilling Weeks 1–3 for a newly created entry.
+    const doc = await (await fetch(`/api/grid?filter[entry]=${encodeURIComponent(entry)}&filter[week]=${week}`)).json();
     setWps(unwrapMany<WinProb>(doc));
   }
 

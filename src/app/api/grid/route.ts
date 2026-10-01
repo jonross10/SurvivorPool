@@ -22,7 +22,11 @@ export async function GET(req: Request) {
   // Default to the current week; a ?filter[week]= override lets the agent ask about any week.
   const wkParam = getFilter(req, "week");
   const week = wkParam ? Number(wkParam) : currentWeek(schedule, new Date());
-  const wps = buildWinProbs(schedule, strengths, odds, week, used);
+  // buildWinProbs returns the given week plus all later weeks; when the caller asked for a
+  // specific week, return just that week (keeps the pick modal and the agent's get_week_options
+  // focused instead of shipping the whole remaining season).
+  const wps = buildWinProbs(schedule, strengths, odds, week, used)
+    .filter((w) => (wkParam ? w.week === week : true));
   const data = wps.map((w) => resource("winprob", `${w.week}:${w.team}`, w));
   return jsonApi(document(data, { week, entry }));
 }
