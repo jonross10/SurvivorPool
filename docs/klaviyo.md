@@ -64,8 +64,13 @@ authenticating with the shared `X-API-Key` and naming the user via `?userId=`. P
 | `get_matchups` | `GET /api/matchups` | A week's games with odds/win %. |
 | `get_week_options` | `GET /api/grid?filter[entry]=&filter[week]=` | Best **available** teams + win % for an entry in **any** week. |
 | `plan_whatif` | `POST /api/simulate-plan` | Rebuild the projected path for a hypothetical pick without locking it. |
-| `make_pick` | `POST /api/picks` | Record a pick (after explicit user confirmation in chat). |
+| `make_pick` | `POST /api/picks` | Record one week's pick (any week, after explicit user confirmation in chat). |
+| `submit_plan` | `POST /api/picks/bulk` | Lock in an entry's entire remaining projected path in one call (all not-yet-picked future weeks, from a single computation so they stay consistent). |
 | `create_entry` / `update_entry` / `delete_entry` | `/api/entries[/id]` | Entry management. |
+
+The skill instructions affirmatively state the agent **can** submit picks and must never claim
+otherwise — an earlier version would oscillate, repeatedly telling the user "I can't submit picks
+from here" before relenting when pushed.
 
 The skill instructions tell the agent to treat the user as already authenticated, to extract and
 pass the `userId` on every call, and to **verify a tool succeeded before claiming an action is

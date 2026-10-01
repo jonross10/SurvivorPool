@@ -222,6 +222,16 @@ async function main() {
     ],
   }));
 
+  const submitPlan = await post("/agent-tools", tool(secretId, {
+    name: "submit_plan",
+    description: "Lock in an entry's ENTIRE remaining projected path in ONE call — records a pick for every not-yet-locked future week from the optimized plan. Use when the user wants to submit all their future picks / 'use the whole plan'. Confirm the entry first; returns the weeks submitted.",
+    method: "POST",
+    url: `${APP}/api/picks/bulk`,
+    body: { data: { attributes: { entry: "{{entry}}" } } },
+    maxRetries: 0,
+    variables: [{ name: "entry", type: "string", required: true, description: "Entry name", source: "dynamic" }],
+  }));
+
   console.log("Creating knowledge…");
   const knowledge: [string, string][] = [
     ["Survivor rules", "In an NFL survivor pool, each week you pick one team to win. If your team loses (or ties, unless the entry's settings say ties survive), you're eliminated. You cannot pick the same team twice in a season."],
@@ -236,7 +246,7 @@ async function main() {
   const toolIds = [
     getEntries.id, getMatchups.id, makePick.id,
     createEntryTool.id, updateEntryTool.id, deleteEntryTool.id,
-    getWeekOptions.id, planWhatif.id,
+    getWeekOptions.id, planWhatif.id, submitPlan.id,
   ].filter(Boolean).map((id) => ({ type: "agent-tool", id }));
   await post("/agent-skills", {
     type: "agent-skill",
@@ -257,7 +267,16 @@ async function main() {
         "for 'what are the options in week N', especially future weeks.\n" +
         "- plan_whatif(entry, week, team): simulate the rebuilt projectedPath if the entry used <team> in <week> " +
         "(without locking) — use for 'if I use DAL in Week 5, what does the rest of the season look like?'.\n" +
-        "- make_pick / create_entry / update_entry / delete_entry: mutations.\n\n" +
+        "- make_pick(entry, week, team): record ONE week's pick (works for any week, past or future).\n" +
+        "- submit_plan(entry): lock in the entry's ENTIRE remaining plan at once — use when the user wants to " +
+        "submit all their future picks / 'use the whole plan'. It records every not-yet-locked future week from a " +
+        "single optimized computation (so the weeks stay consistent) and returns what it set.\n" +
+        "- create_entry / update_entry / delete_entry: entry mutations.\n\n" +
+        "YOU CAN SUBMIT PICKS. make_pick and submit_plan DO write to the pool. NEVER tell the user you are unable to " +
+        "submit picks, that you 'can't submit picks from here', or that the app 'only supports manual entry' — that " +
+        "is false. When the user confirms (e.g. says 'yes' or 'you can submit'), CALL the tool; do not re-ask or " +
+        "deny. For 'submit all my future picks', call submit_plan ONCE (not make_pick week-by-week); you may note " +
+        "in one line that this locks the whole plan so it won't adapt to later line moves, but still do it.\n\n" +
         "VERIFY BEFORE CLAIMING SUCCESS: Only tell the user an action happened (pick made, entry created/renamed/" +
         "deleted) AFTER the tool call returns successfully. If a tool errors or you did not call it, say so plainly — " +
         "never claim a pick or entry change that you did not confirm via a successful tool response.\n\n" +
