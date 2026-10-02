@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { subscribe, getSnapshot, getServerSnapshot, send, reset, reconcile } from "./assistant-store";
+import { subscribe, getSnapshot, getServerSnapshot, send, reset, reconcile, retry } from "./assistant-store";
 
 // Characters revealed per tick while simulating a streaming response.
 const REVEAL_CHARS = 3;
@@ -83,9 +83,22 @@ export default function AssistantChat() {
           return (
             <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role === "user" ? (
-                <span className="inline-block max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
-                  {m.text}
-                </span>
+                <div className="flex max-w-[85%] flex-col items-end gap-1">
+                  <span className="inline-block whitespace-pre-wrap break-words rounded-2xl bg-accent px-3 py-2 text-sm font-medium text-accent-fg">
+                    {m.text}
+                  </span>
+                  {m.failed && (
+                    <button
+                      onClick={() => retry(i)}
+                      disabled={busy}
+                      className="flex items-center gap-1 text-xs font-medium text-danger transition-colors hover:text-fg disabled:opacity-40"
+                      aria-label="Resend message"
+                      title="Resend message"
+                    >
+                      <span aria-hidden>↻</span> Failed to send — tap to resend
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="inline-block max-w-[85%] overflow-hidden break-words rounded-2xl bg-surface-2 px-3 py-2 text-sm text-fg">
                   <div className="assistant-md">
@@ -98,7 +111,9 @@ export default function AssistantChat() {
           );
         })}
         {busy && <p className="text-sm text-muted">Thinking…</p>}
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {/* A failed send surfaces inline on the message itself (tap to resend); only show a
+            standalone error for failures not tied to a specific message. */}
+        {error && !messages.some((m) => m.failed) && <p className="text-sm text-danger">{error}</p>}
         <div ref={bottom} />
       </div>
       <div className="flex items-center gap-2 border-t border-line p-3">

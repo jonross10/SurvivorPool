@@ -4,7 +4,7 @@
 // persisted to localStorage, so it's there (mid-conversation or on return). The component
 // subscribes via useSyncExternalStore and is a pure view over this state.
 
-export interface Msg { role: "user" | "agent"; text: string }
+export interface Msg { role: "user" | "agent"; text: string; failed?: boolean }
 export interface AssistantState { messages: Msg[]; busy: boolean; error: string | null }
 
 const CONV_KEY = "assistant_conversation_id";
@@ -84,23 +84,27 @@ export async function reconcile(): Promise<void> {
   } catch { /* offline / transient — keep local */ }
 }
 
-/** Send a user message and fetch the agent's reply. Safe to fire-and-forget. */
-export async function send(text: string): Promise<void> {
-  ensureLoaded();
-  const trimmed = text.trim();
-  if (!trimmed || busy) return;
+/** Flag (or clear) the `failed` marker on the user message at `idx`. */
+function setFailed(idx: number, failed: boolean) {
+  const m = messages[idx];
+  if (m && m.role === "user") messages = messages.map((x, i) => (i === idx ? { ...x, failed } : x));
+}
 
-  messages = [...messages, { role: "user", text: trimmed }];
+/**
+ * Attempt the request for the user message already sitting at `idx`. On failure the message is
+ * marked `failed` (so the UI can offer a resend) rather than lost. Shared by send() and retry().
+ */
+async function attempt(text: string, idx: number): Promise<void> {
   busy = true;
   error = null;
+  setFailed(idx, false); // clear any prior failure while this attempt is in flight
   persist();
   emit();
-
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message: trimmed, conversationId: convId }),
+      body: JSON.stringify({ message: text, conversationId: convId }),
     });
     const doc = await res.json();
     if (!res.ok) throw new Error(doc?.errors?.[0]?.detail ?? "Assistant error");
@@ -109,11 +113,30 @@ export async function send(text: string): Promise<void> {
     messages = [...messages, ...replies.map((t) => ({ role: "agent" as const, text: t }))];
   } catch (e) {
     error = e instanceof Error ? e.message : "Assistant error";
+    setFailed(idx, true);
   } finally {
     busy = false;
     persist();
     emit();
   }
+}
+
+/** Send a user message and fetch the agent's reply. Safe to fire-and-forget. */
+export async function send(text: string): Promise<void> {
+  ensureLoaded();
+  const trimmed = text.trim();
+  if (!trimmed || busy) return;
+  messages = [...messages, { role: "user", text: trimmed }];
+  await attempt(trimmed, messages.length - 1);
+}
+
+/** Re-send the user message at `idx` (the one whose send failed). */
+export async function retry(idx: number): Promise<void> {
+  ensureLoaded();
+  if (busy) return;
+  const m = messages[idx];
+  if (!m || m.role !== "user" || !m.failed) return;
+  await attempt(m.text, idx);
 }
 
 export function reset(): void {
