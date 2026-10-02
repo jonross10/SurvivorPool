@@ -86,9 +86,24 @@ docs/                       Architecture notes + ADRs (see above)
 
 - Import the repo into Vercel; set every env var above in the project (Vercel sends
   `Authorization: Bearer $CRON_SECRET` on cron requests, which the cron routes verify).
-- `vercel.json` schedules (UTC): a data **refresh** daily, a **sync-klaviyo** reconcile daily,
-  and **pick-results** notifications across six slots covering the Thu/Sun/Mon/Tue game windows.
-  See [`docs/klaviyo.md`](docs/klaviyo.md) for what each cron does.
+- `vercel.json` schedules two **daily** (UTC) jobs: a data **refresh** and a **sync-klaviyo**
+  reconcile. See [`docs/klaviyo.md`](docs/klaviyo.md) for what each does.
+
+### Required external service — notification scheduler
+
+Pick notifications (win/loss + live halftime/close-game alerts) need to poll every few minutes on
+game day, which Vercel's **Hobby** plan can't do (crons are daily-only). So they run on an
+**external scheduler** — this is a real deploy dependency, not optional:
+
+- Create a [cron-job.org](https://cron-job.org) job: **`POST`** `https://<your-app>/api/cron/pick-results`,
+  **every 3 minutes**, header `Authorization: Bearer <CRON_SECRET>`.
+- On first setup, hit it once with `?seed=1` to mark already-final games as notified (avoids a
+  backlog blast).
+- Validate anytime with `GET …/api/cron/pick-results?debug=1` (read-only dry report).
+- ⚠️ If this job is paused/deleted, **all pick notifications silently stop**. It must be `POST`
+  (a `GET` job 405s). `CRON_SECRET` must match across Vercel env, this job's header, and
+  `.env.local`. Full rationale and the live job link are in
+  [`docs/adr/0004-external-scheduler-pick-results.md`](docs/adr/0004-external-scheduler-pick-results.md).
 
 ## How picks work
 
