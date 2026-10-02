@@ -78,11 +78,26 @@ CREATE TABLE IF NOT EXISTS chat_conversations (
 );
 CREATE INDEX IF NOT EXISTS chat_conversations_user_id_idx ON chat_conversations (user_id);
 
--- Dedup for "pick result" notifications: one row per entry-week once its result is sent.
+-- Dedup for pick notifications: one row per (entry, week, event_type) once that notification is
+-- sent. event_type is 'final' (win/loss) plus live events 'halftime' and 'close'. The ALTERs
+-- generalize older installs that keyed only on (entry_id, week); existing rows become 'final',
+-- preserving win/loss dedup history.
 CREATE TABLE IF NOT EXISTS pick_result_notifications (
   entry_id    TEXT NOT NULL,
   week        INTEGER NOT NULL,
   result      TEXT NOT NULL,
   notified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (entry_id, week)
+);
+ALTER TABLE pick_result_notifications ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT 'final';
+ALTER TABLE pick_result_notifications DROP CONSTRAINT IF EXISTS pick_result_notifications_pkey;
+ALTER TABLE pick_result_notifications ADD PRIMARY KEY (entry_id, week, event_type);
+
+-- Per-user "notify me about" preferences. notify_final = win/loss results; notify_live =
+-- in-game updates (halftime, close game). Absent row = both on (push is already opt-in).
+CREATE TABLE IF NOT EXISTS notification_prefs (
+  user_id      TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+  notify_final BOOLEAN NOT NULL DEFAULT true,
+  notify_live  BOOLEAN NOT NULL DEFAULT true,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );

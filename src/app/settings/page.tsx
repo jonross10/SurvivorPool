@@ -1,6 +1,7 @@
 "use client";
 import { useSession, signOut } from "@/lib/auth-client";
 import PushToggle from "@/components/PushToggle";
+import NotificationPrefs from "@/components/NotificationPrefs";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -27,6 +28,7 @@ export default function SettingsPage() {
       <section className="card mb-4 p-4">
         <div className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">Notifications</div>
         <PushToggle />
+        <NotificationPrefs />
       </section>
 
       <button onClick={() => signOut()} className="btn-ghost w-full">

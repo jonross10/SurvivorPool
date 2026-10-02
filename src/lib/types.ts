@@ -18,6 +18,12 @@ export interface GameResult {
   completed: boolean; // status.type.completed
   inProgress: boolean; // status.type.state === "in"
   statusDetail: string; // e.g. "Final", "Q3 5:22", "Sun 1:00 PM"
+  // Live state (optional; present once a game is in progress). Used for halftime / close-game
+  // notifications. period: 1-4, 5+ = OT. statusName: ESPN status.type.name, e.g.
+  // "STATUS_HALFTIME", "STATUS_END_PERIOD", "STATUS_IN_PROGRESS", "STATUS_FINAL".
+  period?: number | null;
+  clock?: string | null; // displayClock, e.g. "2:14"
+  statusName?: string;
 }
 
 export type PickOutcome = "won" | "lost" | "tie" | "pending" | "live";

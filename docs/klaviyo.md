@@ -105,8 +105,15 @@ and re-run.) Sender identity for the email is parameterized via `FLOW_FROM_EMAIL
 | Flow | Trigger | Profile filter | Action |
 | --- | --- | --- | --- |
 | **Magic Link Sign-In** | metric `Magic Link Requested` | none | `send-email` using the *Survivor — Magic Link* template; renders `{{ event.magic_link_url }}` (valid 15 min). |
-| **Pick Result** | metric `Pick Result` (fired when a picked game goes final) | `push_enabled = true` | `send-webhook` → `/api/push/send` with `{{ event.user_id }}` + title/body/url, delivering a web-push notification. |
+| **Pick Result** | metric `Pick Result` | `push_enabled = true` | `send-webhook` → `/api/push/send` with `{{ event.user_id }}` + title/body/url, delivering a web-push notification. |
 | **Pick Reminder** | date-based off the Entry object's `pick_due` property | `push_enabled = true` | `target-date` → `send-webhook` → `/api/push/send` (by `{{ person.email }}`), nudging owners who haven't locked in. |
+
+The **Pick Result** flow handles *all* pick notifications, not just win/loss — the `Pick Result`
+event carries an `event_type` (`final` / `halftime` / `close`) plus a precomputed `push_title` /
+`push_body`, so the flow just forwards whatever the backend decided. Detection and message copy
+live in `src/lib/game-events.ts`; the backend also gates each type on the owner's **notify_final /
+notify_live** preference (`notification_prefs` table, edited on the Settings page) and dedups per
+`(entry, week, event_type)`, so a given alert sends at most once.
 
 `pick_due` is a recurring weekly deadline resolved to a concrete UTC timestamp by
 `weeklyDeadlineISO` and synced onto the Entry object (see §2). A date-triggered flow must begin
@@ -123,13 +130,20 @@ stores a subscription per device; a Klaviyo flow webhook posts to `/api/push/sen
 the user's subscriptions (by `userId`/`email`, trimmed) and delivers the notification. Push-enabled
 profiles are filtered in-flow on a `push_enabled` profile property.
 
-## Cron schedule (`vercel.json`, UTC)
+## Scheduling
 
-| Cron | Schedule (UTC) | Does |
-| --- | --- | --- |
-| `refresh` | daily 16:00 | Ingest schedule / FPI / odds into the cache. |
-| `sync-klaviyo` | daily 16:30 | Reconcile all owners' Custom Object records. |
-| `pick-results` (6 slots) | `thu`, `sun-afternoon`, `sun-evening`, `sun-night`, `mon-night`, `tue-am` | After each game window, detect newly-final picks and fire `Pick Result` events, deduped via `pick_result_notifications`. |
+| Job | Scheduler | Cadence | Does |
+| --- | --- | --- | --- |
+| `refresh` | Vercel cron | daily 16:00 UTC | Ingest schedule / FPI / odds into the cache. |
+| `sync-klaviyo` | Vercel cron | daily 16:30 UTC | Reconcile all owners' Custom Object records. |
+| `pick-results` | **external** (cron-job.org) | every ~3 min | Detect & fire pick notifications (final + live). |
 
-Vercel crons are UTC-only, so the slots are chosen to land just after the Thursday / Sunday /
-Monday / Tuesday-morning NFL game windows in US Eastern.
+`pick-results` needs to run every few minutes on game day (for timely close-game alerts), but this
+project is on Vercel's **Hobby** plan, where crons can only run **once per day**. So it's driven by
+an external scheduler instead — a [cron-job.org](https://cron-job.org) job hitting
+`GET /api/cron/pick-results` every 3 minutes with `Authorization: Bearer <CRON_SECRET>`. The route
+is idempotent and self-gating: it **early-exits** when no game has kicked off, and dedups per
+`(entry, week, event_type)`, so running every 3 minutes year-round is cheap and safe. `?seed=1`
+marks all currently-true events as notified without sending (run once on setup to avoid a backlog
+blast). The results cache refetches live games on a 60-second TTL, so 3-minute polling sees fresh
+scores. `refresh` / `sync-klaviyo` stay on Vercel since once-a-day is fine for them.

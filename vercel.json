@@ -1,12 +1,6 @@
 {
   "crons": [
     { "path": "/api/cron/refresh", "schedule": "0 16 * * *" },
-    { "path": "/api/cron/sync-klaviyo", "schedule": "30 16 * * *" },
-    { "path": "/api/cron/pick-results?slot=thu", "schedule": "0 3 * * 5" },
-    { "path": "/api/cron/pick-results?slot=sun-afternoon", "schedule": "30 20 * * 0" },
-    { "path": "/api/cron/pick-results?slot=sun-evening", "schedule": "30 23 * * 0" },
-    { "path": "/api/cron/pick-results?slot=sun-night", "schedule": "0 3 * * 1" },
-    { "path": "/api/cron/pick-results?slot=mon-night", "schedule": "0 3 * * 2" },
-    { "path": "/api/cron/pick-results?slot=tue-am", "schedule": "0 6 * * 2" }
+    { "path": "/api/cron/sync-klaviyo", "schedule": "30 16 * * *" }
   ]
 }

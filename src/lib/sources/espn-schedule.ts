@@ -7,8 +7,9 @@ interface EspnCompetitor {
   score?: number | string;
   winner?: boolean;
 }
-interface EspnStatusType { state?: string; completed?: boolean; shortDetail?: string }
-interface EspnCompetition { competitors: EspnCompetitor[]; status?: { type?: EspnStatusType } }
+interface EspnStatusType { state?: string; completed?: boolean; shortDetail?: string; name?: string }
+interface EspnStatus { type?: EspnStatusType; period?: number; displayClock?: string }
+interface EspnCompetition { competitors: EspnCompetitor[]; status?: EspnStatus }
 interface EspnEvent { date: string; competitions: EspnCompetition[] }
 interface EspnScoreboard { events: EspnEvent[] }
 
@@ -41,7 +42,8 @@ export function parseResults(data: EspnScoreboard, week: number): GameResult[] {
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
     if (!home || !away) continue;
-    const type = comp.status?.type ?? {};
+    const status = comp.status ?? {};
+    const type = status.type ?? {};
     const completed = type.completed === true;
     const inProgress = type.state === "in";
     const homeScore = home.score != null ? Number(home.score) : null;
@@ -53,6 +55,9 @@ export function parseResults(data: EspnScoreboard, week: number): GameResult[] {
       week, home: toAbbr(home), away: toAbbr(away), kickoff: ev.date,
       homeScore, awayScore, winner, completed, inProgress,
       statusDetail: type.shortDetail ?? "",
+      period: status.period ?? null,
+      clock: status.displayClock ?? null,
+      statusName: type.name ?? "",
     });
   }
   return out;
