@@ -146,5 +146,8 @@ because the route mutates state — sends pushes, writes the dedup ledger). The 
 is idempotent and self-gating: it **early-exits** when no game has kicked off, and dedups per
 `(entry, week, event_type)`, so running every 3 minutes year-round is cheap and safe. `?seed=1`
 marks all currently-true events as notified without sending (run once on setup to avoid a backlog
-blast). The results cache refetches live games on a 60-second TTL, so 3-minute polling sees fresh
-scores. `refresh` / `sync-klaviyo` stay on Vercel since once-a-day is fine for them.
+blast). `?debug=1` (or a plain `GET`) returns a read-only dry report — each current-week picked
+game's live state plus what it *would* send and whether each event is suppressed by prefs/dedup —
+without firing or writing anything, so you can validate live halftime/close detection during a
+real game. The results cache refetches live games on a 60-second TTL, so 3-minute polling sees
+fresh scores. `refresh` / `sync-klaviyo` stay on Vercel since once-a-day is fine for them.
