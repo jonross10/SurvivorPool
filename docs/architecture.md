@@ -5,6 +5,75 @@ How the pieces fit together. The system has four layers: a **pure domain core** 
 routes) that ties them to users. The Klaviyo messaging layer sits alongside and is documented
 separately in [`klaviyo.md`](klaviyo.md).
 
+## System overview
+
+```mermaid
+flowchart TB
+  subgraph clients[Clients]
+    B["Browser / iOS PWA"]
+    AG["Klaviyo Customer Agent"]
+  end
+
+  subgraph vercel[Next.js app on Vercel]
+    MW["middleware.ts<br/>(page gate)"]
+    API["/api/* route handlers<br/>(JSON:API)"]
+    AUTH["resolveActorUserId<br/>(dual auth)"]
+    CORE["pure core<br/>recommendations · pick-engine<br/>portfolio · winprob-matrix"]
+    SRC["sources<br/>espn · odds-api · results · ingest"]
+    REPO["db repos"]
+  end
+
+  DB[("Neon Postgres<br/>entries · picks · cache · prefs …")]
+  ESPN["ESPN"]
+  ODDS["The Odds API"]
+  KL["Klaviyo<br/>agent · flows · objects"]
+
+  subgraph sched[Schedulers]
+    VC["Vercel cron (daily)<br/>refresh · sync-klaviyo"]
+    CJ["cron-job.org (3 min)<br/>pick-results"]
+  end
+
+  B -->|"page nav"| MW
+  B -->|"fetch /api/*"| API
+  AG -->|"tools: X-API-Key + ?userId"| API
+  API --> AUTH
+  API --> CORE
+  API --> REPO --> DB
+  CORE -->|"reads cached snapshots"| DB
+  API -->|"events / background sync"| KL
+  KL -->|"agent tool calls back in"| API
+  VC --> API
+  CJ --> API
+  SRC -.->|"fetch"| ESPN
+  SRC -.->|"fetch"| ODDS
+  SRC -->|"write snapshots"| DB
+  API -.->|"ingest"| SRC
+```
+
+Reads never hit ESPN / The Odds API directly — the schedulers ingest into the `cache` table and
+every request operates on those snapshots. The two external schedulers exist because Vercel's
+Hobby plan only allows daily crons (see [ADR 0004](adr/0004-external-scheduler-pick-results.md)).
+
+### Access pattern (who a request acts as)
+
+Every `/api` request resolves an acting user through one function, `resolveActorUserId`
+([ADR 0001](adr/0001-jsonapi-everywhere-dual-auth.md)):
+
+```mermaid
+flowchart TD
+  Q["Incoming /api request"] --> S{"Valid Better Auth<br/>session cookie?"}
+  S -->|yes| U1["act as session user<br/>(any ?userId / ?email ignored)"]
+  S -->|no| K{"Valid X-API-Key<br/>header?"}
+  K -->|no| N["null → 401"]
+  K -->|yes| P{"?userId= or ?email=?"}
+  P -->|"userId"| U2["act as that user id"]
+  P -->|"email"| U3["map email → user id"]
+  P -->|"neither"| N
+```
+
+A signed-in session always wins and can never act as someone else; the API-key path (the agent /
+automation) is honored only when the key is valid, so it can't be spoofed.
+
 ## The pure domain core (`src/lib`)
 
 Everything here is deterministic, I/O-free, and unit-tested against fixtures. Given schedule,
@@ -98,21 +167,34 @@ Representative routes:
 | `/api/auth/[...all]` | Better Auth (Google, magic link, session). |
 | `/api/chat` | Proxies the in-app assistant to the Klaviyo Customer Agent. |
 | `/api/push/{subscribe,send}` | Web-push subscription + delivery. |
-| `/api/cron/{refresh,sync-klaviyo,pick-results}` | Scheduled jobs (Vercel cron). |
+| `/api/cron/{refresh,sync-klaviyo}` | Scheduled jobs (Vercel cron, daily). |
+| `/api/cron/pick-results` | Pick/live notifications; polled every ~3 min by an external scheduler (see [ADR 0004](adr/0004-external-scheduler-pick-results.md)). |
 
 Writes that change entries or picks fire a **background Klaviyo sync** so the Custom Objects
 mirror stays current without blocking the response — see [`klaviyo.md`](klaviyo.md).
 
 ## Request/data flow (example: loading the dashboard)
 
-```
-cron/refresh ─▶ ingest (ESPN, Odds API) ─▶ cache table
-                                               │
-browser ─▶ GET /api/recommendations ─▶ resolveActorUserId (session)
-             │                              │
-             └─▶ entry-status (entries+picks+overrides+results)
-                      └─▶ buildRecommendations (winprob-matrix → portfolio → pick-engine)
-                               └─▶ JSON:API response ─▶ dashboard-client renders cards
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Cron as Vercel cron (daily)
+  participant Ingest as /api/cron/refresh
+  participant Ext as ESPN / Odds API
+  participant Cache as cache table
+  participant Br as Browser
+  participant Rec as /api/recommendations
+  participant Eng as entry-status → buildRecommendations
+
+  Cron->>Ingest: trigger
+  Ingest->>Ext: fetch schedule / FPI / odds
+  Ext-->>Ingest: payloads
+  Ingest->>Cache: write snapshots
+  Br->>Rec: GET (session cookie)
+  Rec->>Cache: read schedule / fpi / odds / results
+  Rec->>Eng: entries + picks + overrides + results
+  Eng-->>Rec: Recommendation[] (+ projectedPath)
+  Rec-->>Br: JSON:API → dashboard renders cards
 ```
 
 The same `buildRecommendations` output feeds the projection page, the Klaviyo sync, and the

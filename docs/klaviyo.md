@@ -77,6 +77,31 @@ pass the `userId` on every call, and to **verify a tool succeeded before claimin
 done**. Re-running `provision-agent.ts` is the source of truth; live edits (new tools, skill
 instruction changes) are applied against the beta revision.
 
+**Flow of one message** (note the agent's tools loop back into our own JSON:API, and the
+reconcile path that recovers a reply if the page died mid-request):
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Br as Browser (/assistant)
+  participant St as assistant-store
+  participant Chat as /api/chat (session)
+  participant KA as Klaviyo Customer Agent
+  participant Tool as /api/* (X-API-Key + ?userId)
+  participant DB as Postgres
+
+  Br->>St: send(message)
+  St->>Chat: POST {message, conversationId}
+  Chat->>KA: createConversation / createResponse (framed)
+  KA->>Tool: tool call (get_entries, make_pick, submit_plan, …)
+  Tool->>DB: owner-scoped read / write
+  DB-->>Tool: data
+  Tool-->>KA: JSON:API result
+  KA-->>Chat: reply events
+  Chat-->>St: {conversationId, messages}
+  Note over St,Chat: on mount / foreground, GET /api/chat?conversationId=<br/>reconciles from the Klaviyo transcript (survives PWA eviction)
+```
+
 ## 2. Custom Objects sync (`klaviyo-objects.ts`)
 
 Two shared object types — **Entry** and **Pick** — mirror the app's state into Klaviyo so flows
@@ -93,6 +118,27 @@ projected path; each Pick record carries the matchup, win prob, and result.
 - The nightly `sync-klaviyo` cron calls `syncAllOwners` to reconcile any drift.
 
 ## 3. Notification flows
+
+Every notification is the same shape: the app tracks a Klaviyo **event**, a **flow** reacts, and a
+**webhook** calls back to deliver a push (or the flow sends an email). The pick-notification
+pipeline — the most involved one — end to end:
+
+```mermaid
+flowchart LR
+  CJ["cron-job.org<br/>every 3 min · POST"] --> PR["/api/cron/pick-results"]
+  PR --> RES["getResultsFresh → ESPN<br/>(60s live TTL)"]
+  PR --> DET{"detectEvents<br/>final · halftime · close"}
+  DET --> GATE{"pref on?<br/>+ not already notified?"}
+  GATE -->|no| SKIP["skip (dedup / pref off)"]
+  GATE -->|yes| EV["track 'Pick Result' event<br/>(push_title / push_body)"]
+  EV --> FLOW["Klaviyo flow<br/>filter: push_enabled = true"]
+  FLOW --> WH["send-webhook → /api/push/send"]
+  WH --> DEV[("web push → device")]
+```
+
+Detection and copy live in `src/lib/game-events.ts`; gating uses the `notification_prefs` table
+and the `(entry, week, event_type)` dedup ledger. The magic-link and pick-reminder flows follow
+the same event→flow→(email | webhook) shape with different triggers (see the table below).
 
 The app tracks Klaviyo **events** (metric names in `klaviyo.ts`); flows react to them. The three
 live flows and the magic-link email **template** are defined in `scripts/provision-agent.ts`, so
