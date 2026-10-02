@@ -141,7 +141,8 @@ profiles are filtered in-flow on a `push_enabled` profile property.
 `pick-results` needs to run every few minutes on game day (for timely close-game alerts), but this
 project is on Vercel's **Hobby** plan, where crons can only run **once per day**. So it's driven by
 an external scheduler instead — a [cron-job.org](https://cron-job.org) job hitting
-`GET /api/cron/pick-results` every 3 minutes with `Authorization: Bearer <CRON_SECRET>`. The route
+`POST /api/cron/pick-results` every 3 minutes with `Authorization: Bearer <CRON_SECRET>` (POST
+because the route mutates state — sends pushes, writes the dedup ledger). The route
 is idempotent and self-gating: it **early-exits** when no game has kicked off, and dedups per
 `(entry, week, event_type)`, so running every 3 minutes year-round is cheap and safe. `?seed=1`
 marks all currently-true events as notified without sending (run once on setup to avoid a backlog

@@ -26,7 +26,7 @@ function gameFor(results: GameResult[], week: number, team: TeamAbbr): GameResul
  * early-exits when nothing has kicked off, and dedup makes repeated runs safe.
  * `?seed=1` marks all currently-true events as notified WITHOUT sending (run once on setup).
  */
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   const unauth = requireCron(req);
   if (unauth) return unauth;
   const seed = new URL(req.url).searchParams.get("seed") === "1";
