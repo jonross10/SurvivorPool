@@ -20,12 +20,17 @@ export async function GET(req: Request) {
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
   const used = await getUsedTeams(entryId);
   // Default to the current week; a ?filter[week]= override lets the agent ask about any week.
+  const now = new Date();
+  const liveWeek = currentWeek(schedule, now);
   const wkParam = getFilter(req, "week");
-  const week = wkParam ? Number(wkParam) : currentWeek(schedule, new Date());
+  const week = wkParam ? Number(wkParam) : liveWeek;
+  // For the live week, drop games that already kicked off (not pickable; live odds are distorted).
+  // For a past week (backfilling a pick), omit `now` so those played games still show.
+  const asOf = week === liveWeek ? now : undefined;
   // buildWinProbs returns the given week plus all later weeks; when the caller asked for a
   // specific week, return just that week (keeps the pick modal and the agent's get_week_options
   // focused instead of shipping the whole remaining season).
-  const wps = buildWinProbs(schedule, strengths, odds, week, used)
+  const wps = buildWinProbs(schedule, strengths, odds, week, used, asOf)
     .filter((w) => (wkParam ? w.week === week : true));
   const data = wps.map((w) => resource("winprob", `${w.week}:${w.team}`, w));
   return jsonApi(document(data, { week, entry }));

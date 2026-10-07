@@ -27,7 +27,7 @@ export function buildRecommendations(
   const lockedByEntry = new Map<string, Record<number, string>>();
   for (const e of entries) {
     const used = new Set<TeamAbbr>(Object.values(e.picksByWeek));
-    winProbsByEntry.set(e.name, buildWinProbs(schedule, strengths, odds, week, used));
+    winProbsByEntry.set(e.name, buildWinProbs(schedule, strengths, odds, week, used, now));
     lockedByEntry.set(
       e.name,
       Object.fromEntries(

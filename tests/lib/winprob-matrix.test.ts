@@ -37,4 +37,21 @@ describe("buildWinProbs", () => {
     expect(wps.some((w) => w.week === 1)).toBe(false); // past
     expect(wps.some((w) => w.week === 2 && w.team === "NYJ")).toBe(false); // bye
   });
+
+  it("with `now`, drops games that already kicked off but keeps not-yet-started ones", () => {
+    const sched: Matchup[] = [
+      { week: 3, home: "BUF", away: "NYJ", kickoff: "2026-09-24T17:00:00Z" }, // started
+      { week: 3, home: "KC", away: "DET", kickoff: "2026-09-24T20:00:00Z" },  // not started
+    ];
+    const now = new Date("2026-09-24T18:00:00Z");
+    const wps = buildWinProbs(sched, strengths, [], 3, new Set(), now);
+    expect(wps.some((w) => w.team === "BUF" || w.team === "NYJ")).toBe(false); // started game excluded
+    expect(wps.some((w) => w.team === "KC")).toBe(true); // upcoming game kept
+  });
+
+  it("without `now`, keeps already-started games (past-week backfill)", () => {
+    // Week 1 games kick off at 2026-09-10T00:00Z — long past, but omitting `now` shows them.
+    const wps = buildWinProbs(schedule, strengths, odds, 1, new Set());
+    expect(wps.some((w) => w.week === 1)).toBe(true);
+  });
 });

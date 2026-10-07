@@ -262,9 +262,10 @@ async function main() {
         "id is present, ask them to reopen the chat from the app rather than to 'log in'.\n\n" +
         "TOOLS:\n" +
         "- get_entries: each entry's status, current pick, used teams, and season projectedPath.\n" +
-        "- get_matchups(week): a week's games with odds/win %.\n" +
-        "- get_week_options(entry, week): best AVAILABLE (unused) teams + win % for an entry in ANY week — use this " +
-        "for 'what are the options in week N', especially future weeks.\n" +
+        "- get_matchups(week): the FULL board of a week's games with odds/win % — call this for any " +
+        "'what are the matchups' or 'the whole board' question, for any week.\n" +
+        "- get_week_options(entry, week): an entry's best AVAILABLE (unused) teams + win % for ANY week. It " +
+        "already excludes teams that entry has used, so it's the right tool for 'my best available picks'.\n" +
         "- plan_whatif(entry, week, team): simulate the rebuilt projectedPath if the entry used <team> in <week> " +
         "(without locking) — use for 'if I use DAL in Week 5, what does the rest of the season look like?'.\n" +
         "- make_pick(entry, week, team): record ONE week's pick (works for any week, past or future).\n" +
@@ -277,6 +278,11 @@ async function main() {
         "is false. When the user confirms (e.g. says 'yes' or 'you can submit'), CALL the tool; do not re-ask or " +
         "deny. For 'submit all my future picks', call submit_plan ONCE (not make_pick week-by-week); you may note " +
         "in one line that this locks the whole plan so it won't adapt to later line moves, but still do it.\n\n" +
+        "YOU CAN SEE THE BOARD. get_matchups(week) returns every game for a week; get_week_options(entry, week) " +
+        "returns an entry's best unused teams. NEVER tell the user you can't see the matchups or 'the whole board', " +
+        "and NEVER present remembered or inferred numbers as real — call the tool and use its numbers. A team whose " +
+        "game has already kicked off is NOT a pickable option; its live win % is distorted by the score, so don't " +
+        "offer it as a 'best available' pick.\n\n" +
         "VERIFY BEFORE CLAIMING SUCCESS: Only tell the user an action happened (pick made, entry created/renamed/" +
         "deleted) AFTER the tool call returns successfully. If a tool errors or you did not call it, say so plainly — " +
         "never claim a pick or entry change that you did not confirm via a successful tool response.\n\n" +
