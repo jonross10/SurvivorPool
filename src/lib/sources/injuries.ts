@@ -4,10 +4,12 @@ import type { Injury, InjuryMap, Matchup, TeamAbbr } from "../types";
 
 const KEY = "injuries";
 
-// Statuses worth surfacing for survivor. We drop "Active"/"Probable"/null — they're not signal.
-const NOTABLE = new Set(["Out", "Doubtful", "Questionable", "IR", "PUP", "Sus"]);
+// Game-day statuses worth surfacing for survivor. We drop "Active"/"Probable"/null (no signal) and
+// IR / PUP (long-term roster states, not this-week uncertainty — the depth chart already promotes
+// the replacement starter, whose health is what matters). Suspensions are kept: the player is out.
+const NOTABLE = new Set(["Out", "Doubtful", "Questionable", "Sus"]);
 // Severity order for sorting within a team (worst first).
-const SEVERITY = ["Out", "IR", "PUP", "Sus", "Doubtful", "Questionable"];
+const SEVERITY = ["Out", "Sus", "Doubtful", "Questionable"];
 
 /** The Sleeper `/v1/players/nfl` fields we use. */
 interface SleeperPlayer {

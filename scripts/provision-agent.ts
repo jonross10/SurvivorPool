@@ -224,7 +224,7 @@ async function main() {
 
   const getInjuries = await post("/agent-tools", tool(secretId, {
     name: "get_injuries",
-    description: "Notable injuries for a team — starters or QBs who are Out/Doubtful/Questionable/IR, with position, status, and body part (from the live NFL injury report, fresher near kickoff). Use for 'any injuries for <team>?' and to add injury context to pick explanations.",
+    description: "Notable injuries for a team — starters or QBs who are Out/Doubtful/Questionable for this week, with position, status, and body part (from the live NFL injury report, fresher near kickoff). Use for 'any injuries for <team>?' and to add injury context to pick explanations.",
     method: "GET",
     url: `${APP}/api/injuries?filter[team]={{team}}`,
     variables: [{ name: "team", type: "string", required: true, description: "Team abbreviation, e.g. BAL", source: "dynamic" }],
@@ -273,9 +273,9 @@ async function main() {
         "'what are the matchups' or 'the whole board' question, for any week.\n" +
         "- get_week_options(entry, week): an entry's best AVAILABLE (unused) teams + win % for ANY week. It " +
         "already excludes teams that entry has used, so it's the right tool for 'my best available picks'.\n" +
-        "- get_injuries(team): notable injuries for a team (starters or QBs who are Out/Doubtful/Questionable/IR), " +
-        "with position, status, and body part. You DO have live injury data — use it for injury questions and to add " +
-        "context to picks; NEVER say you lack an injury feed.\n" +
+        "- get_injuries(team): notable injuries for a team (starters or QBs who are Out/Doubtful/Questionable this " +
+        "week), with position, status, and body part. You DO have live injury data — use it for injury questions and " +
+        "to add context to picks; NEVER say you lack an injury feed.\n" +
         "- plan_whatif(entry, week, team): simulate the rebuilt projectedPath if the entry used <team> in <week> " +
         "(without locking) — use for 'if I use DAL in Week 5, what does the rest of the season look like?'.\n" +
         "- make_pick(entry, week, team): record ONE week's pick (works for any week, past or future).\n" +

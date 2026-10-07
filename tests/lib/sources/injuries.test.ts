@@ -8,6 +8,7 @@ const players = [
   { full_name: "Star WR", position: "WR", team: "BAL", injury_status: "Out", depth_chart_order: 1, injury_body_part: "Hamstring" },
   { full_name: "Depth WR", position: "WR", team: "BAL", injury_status: "Questionable", depth_chart_order: 6, injury_body_part: "Toe" }, // backup — dropped
   { full_name: "Healthy RB", position: "RB", team: "BAL", injury_status: "Active", depth_chart_order: 1 }, // not notable — dropped
+  { full_name: "IR Starter", position: "WR", team: "BAL", injury_status: "IR", depth_chart_order: 1 }, // long-term — dropped
   { full_name: "Free Agent", position: "WR", team: null, injury_status: "Out", depth_chart_order: 1 }, // no team — dropped
   { full_name: "Other Team", position: "QB", team: "CIN", injury_status: "Doubtful", depth_chart_order: 1, injury_body_part: "Shoulder" },
 ];
@@ -21,6 +22,7 @@ describe("parseInjuries", () => {
     expect(bal).toContain("Star WR");   // starter
     expect(bal).not.toContain("Depth WR");  // backup WR
     expect(bal).not.toContain("Healthy RB"); // Active status
+    expect(bal).not.toContain("IR Starter"); // IR is long-term, not game-day
     expect(map.BAL.find((i) => i.player === "Free Agent")).toBeUndefined();
   });
 
