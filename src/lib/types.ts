@@ -91,6 +91,8 @@ export interface GameView {
   awayProb: number;
   source: "odds" | "fpi";
   result?: GameResult | null; // final/live score, attached by the matchups route
+  homeInjuries?: Injury[]; // notable injuries, attached by the matchups route (upcoming games only)
+  awayInjuries?: Injury[];
 }
 
 export interface EntrySettings {

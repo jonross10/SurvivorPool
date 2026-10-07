@@ -1,6 +1,7 @@
 import { getCache } from "@/lib/db/cache-repo";
 import { buildGameViews } from "@/lib/game-views";
 import { getResultsFresh, resultForGame } from "@/lib/sources/results";
+import { getInjuriesFresh } from "@/lib/sources/injuries";
 import { currentWeek, weeksOf, resolveSeason } from "@/lib/week";
 import { resource, document, jsonApi, getFilter } from "@/lib/jsonapi";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
@@ -15,10 +16,19 @@ export async function GET(req: Request) {
   const week = wkParam ? Number(wkParam) : cur;
 
   const results = await getResultsFresh(cur, resolveSeason());
+  const injuries = await getInjuriesFresh(schedule, new Date());
   const games = buildGameViews(schedule, strengths, odds, week);
   const weeks = weeksOf(schedule);
-  const data = games.map((g) =>
-    resource("game", `${g.week}:${g.away}@${g.home}`, { ...g, result: resultForGame(results, g.week, g.home, g.away) }),
-  );
+  const data = games.map((g) => {
+    const result = resultForGame(results, g.week, g.home, g.away);
+    // Current injuries only help for an upcoming pick, so skip them on live/final games.
+    const upcoming = !result?.completed && !result?.inProgress;
+    return resource("game", `${g.week}:${g.away}@${g.home}`, {
+      ...g,
+      result,
+      awayInjuries: upcoming ? injuries[g.away] ?? [] : [],
+      homeInjuries: upcoming ? injuries[g.home] ?? [] : [],
+    });
+  });
   return jsonApi(document(data, { currentWeek: cur, week, weeks }));
 }

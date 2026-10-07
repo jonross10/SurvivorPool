@@ -1,7 +1,60 @@
+"use client";
+import { useState } from "react";
 import TeamLogo from "./TeamLogo";
 import WinProbPill from "./WinProbPill";
 import { fmtSpread, fmtOdds, fmtKick } from "@/lib/format";
-import type { GameView, GameResult } from "@/lib/types";
+import type { GameView, GameResult, Injury } from "@/lib/types";
+
+const STATUS = { Questionable: "Q", Doubtful: "D", Out: "OUT", IR: "IR", PUP: "PUP", Sus: "SUS" } as const;
+const SEVERITY = ["Out", "IR", "PUP", "Sus", "Doubtful", "Questionable"];
+
+/** Abbreviation + color for a status — red for season/game-ending, amber for game-time. */
+function statusMeta(status: string): { abbr: string; cls: string } {
+  const abbr = (STATUS as Record<string, string>)[status] ?? status;
+  const cls = ["Out", "IR", "PUP", "Sus"].includes(status) ? "text-danger" : "text-warn";
+  return { abbr, cls };
+}
+
+/** One-line injury summary for a card: the headline (QB first, worst status first) + "+N more". Taps to expand both teams. */
+function InjuryLine({ items }: { items: Injury[] }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 0) return null;
+  const sorted = [...items].sort(
+    (a, b) => Number(b.isQB) - Number(a.isQB) || SEVERITY.indexOf(a.status) - SEVERITY.indexOf(b.status),
+  );
+  const head = sorted[0];
+  const rest = sorted.length - 1;
+  const hm = statusMeta(head.status);
+  return (
+    <div className="px-2 pt-1">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-1 text-left text-[11px] text-muted">
+        <span className="text-warn" aria-hidden>⚠</span>
+        <span className="min-w-0 truncate">
+          <span className="font-semibold text-fg">{head.team}</span> {head.player} ({head.position}){" "}
+          <span className={`font-semibold ${hm.cls}`}>{hm.abbr}</span>
+          {rest > 0 && <span className="text-muted"> · +{rest}</span>}
+        </span>
+        <span className="ml-auto shrink-0 text-muted" aria-hidden>{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <ul className="mt-1 space-y-0.5 pb-1 pl-4 text-[11px]">
+          {sorted.map((i, idx) => {
+            const m = statusMeta(i.status);
+            return (
+              <li key={idx} className="flex flex-wrap items-center gap-x-1">
+                <span className="font-semibold text-fg">{i.team}</span>
+                <span className="text-fg">{i.player}</span>
+                <span className="text-muted">({i.position})</span>
+                <span className={`font-semibold ${m.cls}`}>{m.abbr}</span>
+                {i.bodyPart && <span className="text-muted">· {i.bodyPart}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /**
  * One game rendered as two team rows: win-prob pills + spread/odds for upcoming
@@ -100,6 +153,7 @@ export default function GameCard({
       </div>
       {row(game.away, game.awayProb, game.awayOdds, game.homeSpread === null ? null : -game.homeSpread)}
       {row(game.home, game.homeProb, game.homeOdds, game.homeSpread)}
+      <InjuryLine items={[...(game.awayInjuries ?? []), ...(game.homeInjuries ?? [])]} />
     </div>
   );
 }
