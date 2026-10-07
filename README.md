@@ -1,33 +1,29 @@
 # Survivor Pool
 
-A Next.js/Vercel app that recommends weekly NFL survivor-pool picks. Each **entry** picks one
-team per week to win. You can use each team only once, and one loss eliminates the entry. The app
-fetches de-vigged moneyline odds (The Odds API) for the current week and FPI-projected win
-probabilities (ESPN) for future weeks. It then runs a **season-optimal assignment engine** that
-plans a team for every remaining week, so it saves a strong team for a week that needs it instead
-of spending it on an easy week a weaker team would also win. A per-entry **safety floor** refuses
-any current-week pick below a chosen win probability. Every recommendation shows its reasoning and
-the greedy (highest-win-probability) alternative.
+A Next.js/Vercel app that picks NFL survivor-pool teams for you each week.
 
-The app is **multi-user**: sign in with Google or a passwordless magic link, and each entry
-belongs to one owner. It uses **Klaviyo** for messaging — an in-app strategy assistant (Klaviyo
-Customer Agent), push and email notifications (Klaviyo flows + web push), and a Custom Objects
-mirror of every entry and pick.
+In survivor, each **entry** picks one team per week to win. You can use a team only once. One loss
+knocks the entry out. The app pulls de-vigged moneyline odds (The Odds API) for this week and FPI
+win probabilities (ESPN) for later weeks, then plans a team for every remaining week at once. It
+saves a strong team for a week that needs it instead of spending it on an easy week a weaker team
+would also win. A per-entry **safety floor** blocks any pick below a win probability you set. Every
+pick shows why, and shows the simple alternative — the highest-probability team this week.
 
-State lives in **Postgres (Neon)**. `UNIQUE(entry_id, team)` and `UNIQUE(entry_id, week)` enforce
-the core survivor rules in the database.
+Sign in with Google or a magic link. Each entry has one owner. The app uses **Klaviyo** for
+everything it sends: the in-app chat assistant, push and email, and a copy of every entry and pick
+as Custom Objects.
 
-## Documentation map
+State lives in **Postgres (Neon)**. Two unique constraints enforce the rules:
+`UNIQUE(entry_id, team)` stops a repeat team, and `UNIQUE(entry_id, week)` stops two picks in a week.
 
-- **This file** — overview, setup, deploy, directory map.
-- [`docs/architecture.md`](docs/architecture.md) — how the pieces fit: the pure domain engine,
-  data sources, the data model, and the request/data flow through the app.
-- [`docs/klaviyo.md`](docs/klaviyo.md) — the Klaviyo integration: the Customer Agent assistant,
-  Custom Objects sync, notification flows, and web push.
-- [`docs/adr/`](docs/adr/) — Architecture Decision Records for choices that aren't obvious from
-  the code (dual auth, the pick engine, Klaviyo as the messaging layer).
+## Docs
 
-## Directory map
+- **This file** — what it is, setup, deploy, and the file layout.
+- [`docs/architecture.md`](docs/architecture.md) — the layers and how a request flows through them.
+- [`docs/klaviyo.md`](docs/klaviyo.md) — the Klaviyo integration.
+- [`docs/adr/`](docs/adr/) — why the non-obvious choices were made.
+
+## Layout
 
 ```
 src/
@@ -64,56 +60,53 @@ docs/                       Architecture notes + ADRs (see above)
 ## Setup
 
 1. `npm install`
-2. Create a free **Neon** Postgres project; set `NEON_DB_CONNECTION_URL`.
-3. Get a free key at **the-odds-api.com**; set `ODDS_API_KEY`.
-4. Configure **Better Auth**: set `BETTER_AUTH_SECRET` (`openssl rand -base64 32`),
-   `BETTER_AUTH_URL` (`http://localhost:3000` locally), and Google OAuth credentials
-   (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`).
-5. For Klaviyo features set `KLAVIYO_API_KEY`, the VAPID web-push keys
+2. Create a free **Neon** Postgres project. Set `NEON_DB_CONNECTION_URL`.
+3. Get a free key at **the-odds-api.com**. Set `ODDS_API_KEY`.
+4. Set up **Better Auth**: `BETTER_AUTH_SECRET` (`openssl rand -base64 32`), `BETTER_AUTH_URL`
+   (`http://localhost:3000` locally), and Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`).
+5. For Klaviyo, set `KLAVIYO_API_KEY`, the VAPID web-push keys
    (`npx web-push generate-vapid-keys` → `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
-   `VAPID_SUBJECT`), and `API_KEY` (the shared key the Klaviyo agent authenticates with).
-6. Set `CRON_SECRET` (cron auth) and `NFL_SEASON` (e.g. `2026`). See `.env.example`; for local
-   dev put everything in `.env.local`.
-7. `npm run migrate` — creates all tables (Better Auth + app). Entries are created per user
-   through the app, not seeded.
-8. `npm run dev`, open `http://localhost:3000`, and sign in. Load data on first run:
-   `curl -X POST -H "X-API-Key: $API_KEY" "http://localhost:3000/api/refresh?userId=<your-id>"`
-   (in production the cron does this automatically).
+   `VAPID_SUBJECT`), and `API_KEY` (the shared key the agent uses).
+6. Set `CRON_SECRET` and `NFL_SEASON` (e.g. `2026`). See `.env.example`. For local dev, put it all
+   in `.env.local`.
+7. `npm run migrate` — creates every table. You create entries in the app; none are seeded.
+8. `npm run dev`, open `http://localhost:3000`, and sign in. Load data once:
+   `curl -X POST -H "X-API-Key: $API_KEY" "http://localhost:3000/api/refresh?userId=<your-id>"`.
+   In production the cron does this.
 
-> **Local dev gotcha:** never run `npm run build` while `npm run dev` is up — it corrupts `.next`.
+> **Local dev:** don't run `npm run build` while `npm run dev` is up. It corrupts `.next`.
 
 ## Deploy (Vercel)
 
-- Import the repo into Vercel; set every env var above in the project (Vercel sends
-  `Authorization: Bearer $CRON_SECRET` on cron requests, which the cron routes verify).
-- `vercel.json` schedules two **daily** (UTC) jobs: a data **refresh** and a **sync-klaviyo**
-  reconcile. See [`docs/klaviyo.md`](docs/klaviyo.md) for what each does.
+- Import the repo into Vercel and set every env var above. Vercel adds
+  `Authorization: Bearer $CRON_SECRET` to cron requests, which the cron routes check.
+- `vercel.json` runs two **daily** jobs (UTC): a data **refresh** and a **sync-klaviyo** reconcile.
+  [`docs/klaviyo.md`](docs/klaviyo.md) says what each does.
 
-### Required external service — notification scheduler
+### Notification scheduler (required)
 
-Pick notifications (win/loss + live halftime/close-game alerts) need to poll every few minutes on
-game day, which Vercel's **Hobby** plan can't do (crons are daily-only). So they run on an
-**external scheduler** — this is a real deploy dependency, not optional:
+Pick notifications — win/loss plus live halftime and close-game alerts — must run every few minutes
+on game day. Vercel's **Hobby** plan runs crons only once a day, so these run on an outside
+scheduler. This is a real deploy step, not optional:
 
 - Create a [cron-job.org](https://cron-job.org) job: **`POST`** `https://<your-app>/api/cron/pick-results`,
   **every 3 minutes**, header `Authorization: Bearer <CRON_SECRET>`.
-- On first setup, call it once with `?seed=1` to mark already-final games as notified, so it
+- On first setup, call it once with `?seed=1`. This marks already-final games as notified so it
   doesn't send a backlog of old results.
-- Validate anytime with `GET …/api/cron/pick-results?debug=1` (read-only dry report).
-- ⚠️ If this job is paused/deleted, **all pick notifications silently stop**. It must be `POST`
-  (a `GET` job 405s). `CRON_SECRET` must match across Vercel env, this job's header, and
-  `.env.local`. Full rationale and the live job link are in
-  [`docs/adr/0004-external-scheduler-pick-results.md`](docs/adr/0004-external-scheduler-pick-results.md).
+- Check it anytime with `GET …/api/cron/pick-results?debug=1` (a read-only report).
+- ⚠️ If the job stops, **all pick notifications stop, with no error**. It must be `POST` (a `GET`
+  job returns 405). `CRON_SECRET` must match in Vercel, this job's header, and `.env.local`.
+  See [`docs/adr/0004-external-scheduler-pick-results.md`](docs/adr/0004-external-scheduler-pick-results.md).
 
 ## How picks work
 
-Each week the dashboard shows a recommended pick per entry. Press **Confirm pick** to record the
-team you actually played; the database rejects reusing a team or double-picking a week. The pool
-has no public API, so recording your pick is the one manual step. The strategy assistant (chat)
-can answer questions, run what-if projections, and make picks on your behalf after you confirm.
+Each week the dashboard shows one recommended pick per entry. Press **Confirm pick** to record the
+team you played. The database rejects a repeat team or a second pick in a week. The pool has no
+public API, so recording your pick is the one manual step. The chat assistant can answer questions,
+run what-if projections, and make picks for you after you confirm.
 
 ## Testing
 
-- `npm test` — full unit suite (Vitest).
+- `npm test` — unit suite (Vitest).
 - `npx tsc --noEmit` — typecheck.
-- `npm run build` — production build (don't run while `dev` is up).
+- `npm run build` — production build (not while `dev` is up).

@@ -1,8 +1,7 @@
 # Architecture Decision Records
 
-Short records of decisions that shaped this codebase and aren't obvious from reading it. Each
-captures the context, the decision, and the trade-offs — so a future reader (or a future us)
-knows *why*, not just *what*.
+Short records of decisions that aren't obvious from the code. Each gives the context, the decision,
+and the trade-offs, so a later reader knows *why*, not just *what*.
 
 | # | Decision | Status |
 | --- | --- | --- |

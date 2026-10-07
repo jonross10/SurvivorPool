@@ -4,50 +4,45 @@
 
 ## Context
 
-A survivor entry picks one team per week, can use each team at most once, and is out on a single
-loss. The naive strategy is **greedy**: each week pick the available team most likely to win.
-Greedy is simple but weak. It spends your strongest team — say a big favorite — on an easy week a
-weaker team would also win, which leaves you worse options later. The teams you *don't* spend have
-future value.
+A survivor entry picks one team a week, uses each team once, and is out on one loss. The naive move
+is **greedy**: each week, pick the available team most likely to win. Greedy is simple but weak. It
+spends your best team — a big favorite — on an easy week a weaker team would also win, and leaves
+you worse options later. The teams you don't spend have future value.
 
-We want recommendations that plan the whole remaining season: reserve strong teams for the weeks
-that need them, and tell the user *why* a given pick was made.
+We want picks that plan the rest of the season: hold strong teams for the weeks that need them, and
+show the user why.
 
 ## Decision
 
-Model the remaining season as a **max-weight bipartite assignment**: weeks on one side, still-
-available teams on the other, edge weight = win probability of that team in that week.
+Model the rest of the season as a **max-weight assignment**: weeks on one side, unused teams on the
+other, edge weight = that team's win probability that week.
 
 - `optimalPath` (`pick-engine.ts`) builds a (weeks × teams) matrix of `log(prob)` and runs
-  `maxWeightAssignment` (`matching.ts`, Hungarian-style). Summing logs = maximizing the
-  **product** of win probabilities across the season, i.e. the probability of surviving the whole
-  path. One team per week, each team once, follows from the assignment constraints.
-- Win probabilities come from two sources combined (`winprob-matrix.ts`): de-vigged moneylines for
-  the current week (`odds.ts`), and FPI-based logistic projections for future weeks
-  (`projection.ts`).
-- `recommendFromPath` turns the planned path into a current-week recommendation, applies a
-  per-entry **safety floor** (if the optimal current pick is below the floor, swap to the safest
-  team that clears it), and emits reasoning plus the greedy alternative for transparency.
-- `portfolio.ts` + `recommendations.ts` plan an entire **pool** together so a user's multiple
-  entries diversify instead of using the same team in the same week. Eliminated entries are
-  excluded so they don't reserve teams.
+  `maxWeightAssignment` (`matching.ts`, Hungarian-style). Summing logs maximizes the **product** of
+  win probabilities — the chance of surviving the whole path. One team per week, each team once,
+  comes from the assignment constraints.
+- Win probabilities come from two sources (`winprob-matrix.ts`): de-vigged moneylines for this week
+  (`odds.ts`), and FPI projections for later weeks (`projection.ts`).
+- `recommendFromPath` turns the path into this week's pick, applies the per-entry **safety floor**
+  (if the best pick is below the floor, swap to the safest team above it), and writes the reason
+  plus the greedy alternative.
+- `portfolio.ts` + `recommendations.ts` plan a whole **pool** together, so a user's entries
+  diversify instead of using the same team the same week. Out entries are excluded so they don't
+  hold teams.
 
 ## Consequences
 
 **Good:**
-- Recommendations account for future weeks, which is the whole point of survivor strategy.
-- The projected path is a first-class artifact reused everywhere — the projection page, the
-  Klaviyo Entry object, and the assistant's `plan_whatif` (which just re-runs the assignment with
-  a hypothetical pick merged in).
-- Working in log-space makes the objective numerically stable and the "maximize survival
-  probability" intent explicit.
+- Picks account for future weeks, which is the point of survivor.
+- The projected path is reused everywhere — the projection page, the Klaviyo Entry object, and the
+  assistant's `plan_whatif` (which re-runs the assignment with a hypothetical pick added).
+- Working in log-space keeps the math stable and the goal — maximize survival — explicit.
 
-**Costs / trade-offs:**
-- The projection is only as good as its inputs. FPI for far-future weeks is a coarse estimate, so
-  the path shifts week to week as odds settle. This is expected, but it means the path is
-  guidance, not a commitment.
-- Assignment optimizes the single most-likely path; it does not maximize over the full
-  distribution of outcomes (e.g. hedging correlated upsets). Good enough for the domain, and far
-  better than greedy, without the complexity of a full stochastic optimizer.
-- A hard safety floor can override the mathematically optimal pick. That's intentional (users
-  want to avoid coin-flips early) but means the recommendation isn't always the raw argmax.
+**Costs:**
+- The projection is only as good as its inputs. FPI for far weeks is rough, so the path shifts week
+  to week as odds settle. Expected, but the path is guidance, not a commitment.
+- The assignment finds the single most-likely path. It doesn't optimize over the full spread of
+  outcomes (no hedging of correlated upsets). Good enough here, and far better than greedy, without
+  a full stochastic optimizer.
+- A hard safety floor can override the optimal pick. That's on purpose — users avoid early
+  coin-flips — but the pick isn't always the raw argmax.
