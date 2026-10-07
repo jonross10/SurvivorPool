@@ -103,6 +103,9 @@ a unit test catches an upstream shape change before production.
 - `espn-fpi.ts` — FPI team ratings (drive future-week projections).
 - `odds-api.ts` — this week's moneylines from The Odds API.
 - `results.ts` — live and final scores; `getResultsFresh`, `resultForGame`.
+- `injuries.ts` — notable injuries per team from Sleeper (free, no key): starters or QBs who are
+  Out/Doubtful/Questionable/IR. `getInjuriesFresh` refetches on a schedule-aware TTL — short near a
+  kickoff (inactives land then), long otherwise.
 - `ingest.ts` — the refresh pipeline: fetch each source, normalize, write to `cache`. Called by
   `POST /api/refresh` and the `refresh` cron.
 

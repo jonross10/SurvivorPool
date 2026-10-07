@@ -33,6 +33,18 @@ export interface TeamStrength {
   fpi: number;
 }
 
+export interface Injury {
+  team: TeamAbbr;
+  player: string;
+  position: string; // QB, RB, WR, TE, …
+  status: string; // Out, Doubtful, Questionable, IR, PUP, Sus
+  isQB: boolean;
+  bodyPart: string | null;
+}
+
+/** Notable injuries grouped by team abbreviation. */
+export type InjuryMap = Record<TeamAbbr, Injury[]>;
+
 export interface MoneylineGame {
   week: number;
   home: TeamAbbr;

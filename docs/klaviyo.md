@@ -61,6 +61,7 @@ the id, not the email, to keep PII out of the transcript.
 | `get_entries` | `GET /api/recommendations`-style status | Each entry's status, current pick, used teams, projected path. |
 | `get_matchups` | `GET /api/matchups` | A week's games with odds and win %. |
 | `get_week_options` | `GET /api/grid?filter[entry]=&filter[week]=` | Best **available** teams and win % for an entry, **any** week. |
+| `get_injuries` | `GET /api/injuries?filter[team]=` | A team's notable injuries (starters/QBs, with status and body part); fresher near kickoff. |
 | `plan_whatif` | `POST /api/simulate-plan` | Rebuild the path for a hypothetical pick without locking it. |
 | `make_pick` | `POST /api/picks` | Record one week's pick (any week, after the user confirms in chat). |
 | `submit_plan` | `POST /api/picks/bulk` | Lock an entry's whole remaining path in one call, from a single computation so the weeks stay consistent. |

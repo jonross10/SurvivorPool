@@ -1,6 +1,7 @@
 import { fetchSeasonSchedule } from "./espn-schedule";
 import { espnFpiProvider } from "./espn-fpi";
 import { fetchOdds, parseOdds } from "./odds-api";
+import { fetchInjuries } from "./injuries";
 import { setCache } from "../db/cache-repo";
 import type { Matchup } from "../types";
 
@@ -9,6 +10,7 @@ export interface IngestResult {
   fpi: number;
   odds: number | null;      // games with odds cached, or null if the odds refresh was skipped
   oddsError: string | null; // failure message when the odds refresh was skipped
+  injuries: number | null;  // notable injuries cached, or null if that refresh was skipped
 }
 
 export async function ingestAll(season: number, oddsApiKey: string): Promise<IngestResult> {
@@ -37,7 +39,17 @@ export async function ingestAll(season: number, oddsApiKey: string): Promise<Ing
     console.error("[ingest] odds refresh failed, keeping prior odds:", oddsError);
   }
 
-  return { schedule: schedule.length, fpi: strengths.length, odds: oddsCount, oddsError };
+  // Injuries are also an enhancement (daily baseline; reads refresh them near kickoff). Best-effort.
+  let injuriesCount: number | null = null;
+  try {
+    const injuries = await fetchInjuries();
+    await setCache("injuries", injuries);
+    injuriesCount = Object.values(injuries).reduce((n, list) => n + list.length, 0);
+  } catch (e) {
+    console.error("[ingest] injuries refresh failed, keeping prior injuries:", e instanceof Error ? e.message : e);
+  }
+
+  return { schedule: schedule.length, fpi: strengths.length, odds: oddsCount, oddsError, injuries: injuriesCount };
 }
 
 function buildWeekLookup(schedule: Matchup[]): Map<string, number> {

@@ -222,6 +222,13 @@ async function main() {
     ],
   }));
 
+  const getInjuries = await post("/agent-tools", tool(secretId, {
+    name: "get_injuries",
+    description: "Notable injuries for a team — starters or QBs who are Out/Doubtful/Questionable/IR, with position, status, and body part (from the live NFL injury report, fresher near kickoff). Use for 'any injuries for <team>?' and to add injury context to pick explanations.",
+    method: "GET",
+    url: `${APP}/api/injuries?filter[team]={{team}}`,
+    variables: [{ name: "team", type: "string", required: true, description: "Team abbreviation, e.g. BAL", source: "dynamic" }],
+  }));
   const submitPlan = await post("/agent-tools", tool(secretId, {
     name: "submit_plan",
     description: "Lock in an entry's ENTIRE remaining projected path in ONE call — records a pick for every not-yet-locked future week from the optimized plan. Use when the user wants to submit all their future picks / 'use the whole plan'. Confirm the entry first; returns the weeks submitted.",
@@ -246,7 +253,7 @@ async function main() {
   const toolIds = [
     getEntries.id, getMatchups.id, makePick.id,
     createEntryTool.id, updateEntryTool.id, deleteEntryTool.id,
-    getWeekOptions.id, planWhatif.id, submitPlan.id,
+    getWeekOptions.id, planWhatif.id, submitPlan.id, getInjuries.id,
   ].filter(Boolean).map((id) => ({ type: "agent-tool", id }));
   await post("/agent-skills", {
     type: "agent-skill",
@@ -266,6 +273,9 @@ async function main() {
         "'what are the matchups' or 'the whole board' question, for any week.\n" +
         "- get_week_options(entry, week): an entry's best AVAILABLE (unused) teams + win % for ANY week. It " +
         "already excludes teams that entry has used, so it's the right tool for 'my best available picks'.\n" +
+        "- get_injuries(team): notable injuries for a team (starters or QBs who are Out/Doubtful/Questionable/IR), " +
+        "with position, status, and body part. You DO have live injury data — use it for injury questions and to add " +
+        "context to picks; NEVER say you lack an injury feed.\n" +
         "- plan_whatif(entry, week, team): simulate the rebuilt projectedPath if the entry used <team> in <week> " +
         "(without locking) — use for 'if I use DAL in Week 5, what does the rest of the season look like?'.\n" +
         "- make_pick(entry, week, team): record ONE week's pick (works for any week, past or future).\n" +
