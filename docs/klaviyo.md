@@ -7,7 +7,7 @@ Klaviyo is the app's messaging and conversational layer. Four things run through
 3. **Notification flows** — sign-in links, push enable/disable, and pick-result alerts.
 4. **Web push** — browser notifications delivered via a Klaviyo flow webhook.
 
-For *why* Klaviyo is the integration spine rather than a bespoke notification service, see
+For *why* the app uses Klaviyo instead of a separate notification service, see
 [ADR 0003](adr/0003-klaviyo-as-integration-spine.md).
 
 ## Code layout
@@ -36,17 +36,17 @@ creates/continues a **Customer Agent conversation** tied to the signed-in user's
 returns the agent's replies.
 
 **Durability / reconcile.** The conversation lives in a module-level store
-(`assistant-store.ts`) so an in-flight request survives in-app navigation. For the harder case —
-the page dying mid-request (an iOS home-screen PWA evicted while backgrounded) — the agent reply
-would otherwise be lost, since it only arrives as the POST response. Klaviyo is the system of
-record: `getConversationMessages` reads the transcript from
+(`assistant-store.ts`), so an in-flight request survives in-app navigation. A harder case is when
+the page is destroyed mid-request — for example, when iOS evicts a backgrounded home-screen PWA.
+The agent reply arrives only as the POST response, so it would otherwise be lost. Klaviyo keeps
+the record: `getConversationMessages` reads the transcript from
 `GET /customer-agent-conversations/{id}/customer-agent-messages` (the messages are a *relationship*
-on the conversation, not in its attributes). `GET /api/chat?conversationId=` exposes that
-transcript to the owner (authorized via the `chat_conversations` id→user mapping written on
-create), stripping the routing framing off stored user messages. The client calls it on mount
-and on return-to-foreground, so a reply that landed while the page was gone is recovered. (If iOS
-kills the page before the POST even leaves the device, Klaviyo never received it — nothing to
-recover, but no duplicate either.)
+on the conversation, not in its attributes). `GET /api/chat?conversationId=` returns that
+transcript to the owner — authorized by the `chat_conversations` id→user mapping written on
+create — and strips the routing framing off stored user messages. The client calls it on mount
+and on return to the foreground, so it recovers a reply that landed while the page was gone. (If
+iOS destroys the page before the POST leaves the device, Klaviyo never received it: nothing to
+recover, and no duplicate.)
 
 **Routing + auth framing.** `frameForRouting(message, userId)` prefixes every outgoing message
 with `(NFL survivor pool · user=<id>)`. This does two jobs: it steers Klaviyo's skill router to
@@ -54,9 +54,8 @@ our *survivor-strategy* skill (not the prebuilt General Q&A), and it carries the
 user id for the agent to pass to its tools. The id is injected server-side, so the client can't
 spoof it, and we pass the id, not the email (no PII in the transcript).
 
-**Tools.** The agent reaches back into the app through the same JSON:API routes the UI uses,
-authenticating with the shared `X-API-Key` and naming the user via `?userId=`. Provisioned by
-`scripts/provision-agent.ts`:
+**Tools.** The agent calls the same JSON:API routes the UI uses. It authenticates with the shared
+`X-API-Key` and names the user via `?userId=`. `scripts/provision-agent.ts` provisions them:
 
 | Tool | Endpoint | Use |
 | --- | --- | --- |
@@ -68,9 +67,9 @@ authenticating with the shared `X-API-Key` and naming the user via `?userId=`. P
 | `submit_plan` | `POST /api/picks/bulk` | Lock in an entry's entire remaining projected path in one call (all not-yet-picked future weeks, from a single computation so they stay consistent). |
 | `create_entry` / `update_entry` / `delete_entry` | `/api/entries[/id]` | Entry management. |
 
-The skill instructions affirmatively state the agent **can** submit picks and must never claim
-otherwise — an earlier version would oscillate, repeatedly telling the user "I can't submit picks
-from here" before relenting when pushed.
+The skill instructions state plainly that the agent **can** submit picks and must never claim
+otherwise. An earlier version kept telling the user "I can't submit picks from here" and
+submitted only when pushed.
 
 The skill instructions tell the agent to treat the user as already authenticated, to extract and
 pass the `userId` on every call, and to **verify a tool succeeded before claiming an action is
@@ -105,10 +104,10 @@ sequenceDiagram
 ## 2. Custom Objects sync (`klaviyo-objects.ts`)
 
 Two shared object types — **Entry** and **Pick** — mirror the app's state into Klaviyo so flows
-and messages can reference it. `syncOwner(ownerId)` reuses the exact same status /
-recommendation / game-view computation the dashboard uses, so records reflect what the app shows:
-the Entry record carries alive/eliminated state, current + suggested pick, used teams, and the
-projected path; each Pick record carries the matchup, win prob, and result.
+and messages can reference it. `syncOwner(ownerId)` reuses the same status, recommendation, and
+game-view computation the dashboard uses, so the records match what the app shows. The Entry
+record carries alive/eliminated state, the current and suggested pick, used teams, and the
+projected path. Each Pick record carries the matchup, win prob, and result.
 
 - Records push through **bulk create jobs** (batches of 500) against a shared data source.
 - Record ids are stable (`<entryId>` for entries, `<entryId>:<week>` for picks) so re-syncing
@@ -119,9 +118,9 @@ projected path; each Pick record carries the matchup, win prob, and result.
 
 ## 3. Notification flows
 
-Every notification is the same shape: the app tracks a Klaviyo **event**, a **flow** reacts, and a
-**webhook** calls back to deliver a push (or the flow sends an email). The pick-notification
-pipeline — the most involved one — end to end:
+Every notification has the same shape: the app tracks a Klaviyo **event**, a **flow** reacts, and
+a **webhook** calls back to deliver a push (or the flow sends an email). The pick-notification
+pipeline, the most complex one, end to end:
 
 ```mermaid
 flowchart LR
@@ -191,8 +190,8 @@ an external scheduler instead — a [cron-job.org](https://cron-job.org) job hit
 because the route mutates state — sends pushes, writes the dedup ledger). The route
 is idempotent and self-gating: it **early-exits** when no game has kicked off, and dedups per
 `(entry, week, event_type)`, so running every 3 minutes year-round is cheap and safe. `?seed=1`
-marks all currently-true events as notified without sending (run once on setup to avoid a backlog
-blast). `?debug=1` (or a plain `GET`) returns a read-only dry report — each current-week picked
+marks all currently-true events as notified without sending (run once on setup, so it doesn't send
+a backlog of old results). `?debug=1` (or a plain `GET`) returns a read-only dry report — each current-week picked
 game's live state plus what it *would* send and whether each event is suppressed by prefs/dedup —
 without firing or writing anything, so you can validate live halftime/close detection during a
 real game. The results cache refetches live games on a 60-second TTL, so 3-minute polling sees

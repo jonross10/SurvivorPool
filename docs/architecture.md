@@ -2,8 +2,8 @@
 
 How the pieces fit together. The system has four layers: a **pure domain core** (no I/O), the
 **data sources** that feed it, a **data model** in Postgres, and the **app** (pages + JSON:API
-routes) that ties them to users. The Klaviyo messaging layer sits alongside and is documented
-separately in [`klaviyo.md`](klaviyo.md).
+routes) that ties them to users. [`klaviyo.md`](klaviyo.md) documents the Klaviyo messaging layer
+separately.
 
 ## System overview
 
@@ -50,9 +50,9 @@ flowchart TB
   API -.->|"ingest"| SRC
 ```
 
-Reads never hit ESPN / The Odds API directly — the schedulers ingest into the `cache` table and
-every request operates on those snapshots. The two external schedulers exist because Vercel's
-Hobby plan only allows daily crons (see [ADR 0004](adr/0004-external-scheduler-pick-results.md)).
+Reads never call ESPN or The Odds API directly. The schedulers write each source into the
+`cache` table, and every request reads those snapshots. There are two schedulers because Vercel's
+Hobby plan allows only daily crons (see [ADR 0004](adr/0004-external-scheduler-pick-results.md)).
 
 ### Access pattern (who a request acts as)
 
@@ -71,8 +71,8 @@ flowchart TD
   P -->|"neither"| N
 ```
 
-A signed-in session always wins and can never act as someone else; the API-key path (the agent /
-automation) is honored only when the key is valid, so it can't be spoofed.
+A signed-in session always wins and can never act as someone else. The API-key path (the agent
+or automation) works only when the key is valid, so no one can spoof it.
 
 ## The pure domain core (`src/lib`)
 
@@ -86,7 +86,7 @@ team strengths, and odds, it produces win probabilities and pick recommendations
 | `win-prob.ts` / `winprob-matrix.ts` | Per-matchup win prob, then the week × team matrix of win probs for an entry, excluding the teams it has already used. |
 | `matching.ts` | `maxWeightAssignment` — a Hungarian-style max-weight bipartite assignment over a (weeks × teams) matrix. |
 | `pick-engine.ts` | `optimalPath` assigns one team per remaining week to maximize the **product** of win probs (summed logs). `recommendFromPath` derives the current-week pick, applies the safety-floor override, and writes human-readable reasoning. |
-| `portfolio.ts` | Plans a whole **pool** of entries together so they diversify (two of your entries shouldn't ride the same team into the same week). |
+| `portfolio.ts` | Plans a whole **pool** of entries together so they diversify — two of your entries don't use the same team in the same week. |
 | `recommendations.ts` | Orchestrator: builds per-entry win-prob matrices, plans each pool over its alive entries, and resolves current-week collisions. Produces the `Recommendation[]` the dashboard, projection, sync, and assistant all consume. |
 | `elimination.ts` | Determines whether/when an entry is eliminated, honoring manual `pick_overrides`. |
 | `game-views.ts` | Shapes schedule + odds + results into the per-game view the UI and sync render. |
@@ -98,8 +98,8 @@ team strengths, and odds, it produces win probabilities and pick recommendations
 
 ## Data sources (`src/lib/sources`)
 
-Fetch → normalize → cache. Parsers are tested against captured fixtures in `tests/fixtures/`,
-so a change in an upstream payload shape is caught by a unit test rather than in production.
+Fetch → normalize → cache. Each parser is tested against captured fixtures in `tests/fixtures/`,
+so a unit test catches a change in an upstream payload shape before it reaches production.
 
 - `espn-schedule.ts` — the season schedule (weeks, matchups, kickoff times).
 - `espn-fpi.ts` — FPI team strength ratings (drives future-week projections).
@@ -108,8 +108,8 @@ so a change in an upstream payload shape is caught by a unit test rather than in
 - `ingest.ts` — the refresh pipeline: fetch each source, normalize, and write to the `cache`
   table. Invoked by `POST /api/refresh` and the `refresh` cron.
 
-Reads go through the `cache` table, so the domain core and every request operate on cached
-snapshots rather than hitting ESPN / The Odds API per request.
+Reads go through the `cache` table, so the domain core and every request use cached snapshots
+instead of calling ESPN or The Odds API on each request.
 
 ## Data model (`src/lib/db`)
 
@@ -137,20 +137,20 @@ The repos (`entries-repo`, `picks-repo`, `users-repo`, `push-repo`, `cache-repo`
 
 **Pages** (`/`, `/grid`, `/matchups`, `/plan`, `/calendar`, `/settings`, `/assistant`,
 `/signin`) are gated by `src/middleware.ts`, a coarse edge check that redirects visitors without
-a session cookie to `/signin`. It is a presence check only — real authorization happens per
-request in the API routes.
+a session cookie to `/signin`. It only checks for a cookie; the API routes do the real
+authorization on each request.
 
-**API routes** are JSON:API and are the single way any state is read or written — the UI and the
-Klaviyo agent go through the same endpoints, differing only in how they authenticate. Every route
-calls `resolveActorUserId(req)` (`lib/agent-auth.ts`), which returns:
+**API routes** are JSON:API and are the only way to read or write state. The UI and the Klaviyo
+agent use the same endpoints; only their authentication differs. Every route calls
+`resolveActorUserId(req)` (`lib/agent-auth.ts`), which returns:
 
 1. the **session** user id if a valid Better Auth cookie is present (a signed-in user always
    wins and can never act as someone else), else
 2. the user named by `?userId=` / `?email=` **only if** the request carries the valid shared
    `X-API-Key` (the automation/agent path, which has no browser session).
 
-See [ADR 0001](adr/0001-jsonapi-everywhere-dual-auth.md) for why the UI has no privileged
-backdoor and everything is an API.
+See [ADR 0001](adr/0001-jsonapi-everywhere-dual-auth.md) for why the UI has no private path of
+its own and everything is an API.
 
 Representative routes:
 
@@ -170,7 +170,7 @@ Representative routes:
 | `/api/cron/{refresh,sync-klaviyo}` | Scheduled jobs (Vercel cron, daily). |
 | `/api/cron/pick-results` | Pick/live notifications; polled every ~3 min by an external scheduler (see [ADR 0004](adr/0004-external-scheduler-pick-results.md)). |
 
-Writes that change entries or picks fire a **background Klaviyo sync** so the Custom Objects
+Writes that change entries or picks start a **background Klaviyo sync**, so the Custom Objects
 mirror stays current without blocking the response — see [`klaviyo.md`](klaviyo.md).
 
 ## Request/data flow (example: loading the dashboard)
@@ -198,4 +198,4 @@ sequenceDiagram
 ```
 
 The same `buildRecommendations` output feeds the projection page, the Klaviyo sync, and the
-assistant's tools — one engine, many surfaces.
+assistant's tools. One engine serves every surface.

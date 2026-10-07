@@ -1,21 +1,21 @@
 # Survivor Pool
 
 A Next.js/Vercel app that recommends weekly NFL survivor-pool picks. Each **entry** picks one
-team per week to win; a team can be used at most once, and a single loss eliminates the entry.
-The app fetches de-vigged moneyline odds (The Odds API) for the current week and FPI-projected
-win probabilities (ESPN) for future weeks, then runs a **season-optimal assignment engine** that
-plans a team for every remaining week — so it won't burn a juggernaut on an easy week when a
-solid weaker team gets you through and the juggernaut is worth more later. A per-entry **safety
-floor** refuses any current-week pick below a chosen win probability, and every recommendation
-shows its reasoning plus the greedy (highest-win-probability) alternative.
+team per week to win. You can use each team only once, and one loss eliminates the entry. The app
+fetches de-vigged moneyline odds (The Odds API) for the current week and FPI-projected win
+probabilities (ESPN) for future weeks. It then runs a **season-optimal assignment engine** that
+plans a team for every remaining week, so it saves a strong team for a week that needs it instead
+of spending it on an easy week a weaker team would also win. A per-entry **safety floor** refuses
+any current-week pick below a chosen win probability. Every recommendation shows its reasoning and
+the greedy (highest-win-probability) alternative.
 
-It is **multi-user** (Google sign-in or passwordless magic link) with per-owner entries, and it
-is wired into **Klaviyo** for its messaging layer: an in-app strategy assistant (Klaviyo Customer
-Agent), push/email notifications (Klaviyo flows + web push), and a Custom Objects mirror of every
-entry and pick.
+The app is **multi-user**: sign in with Google or a passwordless magic link, and each entry
+belongs to one owner. It uses **Klaviyo** for messaging — an in-app strategy assistant (Klaviyo
+Customer Agent), push and email notifications (Klaviyo flows + web push), and a Custom Objects
+mirror of every entry and pick.
 
 State lives in **Postgres (Neon)**. `UNIQUE(entry_id, team)` and `UNIQUE(entry_id, week)` enforce
-the core survivor rules at the database level.
+the core survivor rules in the database.
 
 ## Documentation map
 
@@ -25,7 +25,7 @@ the core survivor rules at the database level.
 - [`docs/klaviyo.md`](docs/klaviyo.md) — the Klaviyo integration: the Customer Agent assistant,
   Custom Objects sync, notification flows, and web push.
 - [`docs/adr/`](docs/adr/) — Architecture Decision Records for choices that aren't obvious from
-  the code (dual auth, the pick engine, Klaviyo as the integration spine).
+  the code (dual auth, the pick engine, Klaviyo as the messaging layer).
 
 ## Directory map
 
@@ -97,8 +97,8 @@ game day, which Vercel's **Hobby** plan can't do (crons are daily-only). So they
 
 - Create a [cron-job.org](https://cron-job.org) job: **`POST`** `https://<your-app>/api/cron/pick-results`,
   **every 3 minutes**, header `Authorization: Bearer <CRON_SECRET>`.
-- On first setup, hit it once with `?seed=1` to mark already-final games as notified (avoids a
-  backlog blast).
+- On first setup, call it once with `?seed=1` to mark already-final games as notified, so it
+  doesn't send a backlog of old results.
 - Validate anytime with `GET …/api/cron/pick-results?debug=1` (read-only dry report).
 - ⚠️ If this job is paused/deleted, **all pick notifications silently stop**. It must be `POST`
   (a `GET` job 405s). `CRON_SECRET` must match across Vercel env, this job's header, and

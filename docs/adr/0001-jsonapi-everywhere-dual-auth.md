@@ -4,15 +4,14 @@
 
 ## Context
 
-The app has two very different clients: a human using the web UI (authenticated by a browser
-session) and the Klaviyo Customer Agent acting on a user's behalf (no browser, no cookie). We
-needed the agent to be able to do essentially anything the UI can — read status, run what-if
-projections, create entries, make picks — without building and maintaining a second, parallel
-surface just for automation.
+The app has two very different clients: a person using the web UI (authenticated by a browser
+session) and the Klaviyo Customer Agent acting on a user's behalf (no browser, no cookie). The
+agent had to do almost anything the UI can — read status, run what-if projections, create
+entries, make picks — without a second, parallel surface built just for automation.
 
-A common shortcut is to let the UI call privileged server actions directly (server components /
-server actions touching the DB) and bolt on a thin, separate API for machines. That path tends
-to drift: the two surfaces grow different capabilities, different validation, and different bugs.
+A common shortcut is to let the UI call privileged server actions directly (server components or
+server actions that touch the DB) and add a separate, thin API for machines. That path drifts:
+the two surfaces grow different capabilities, different validation, and different bugs.
 
 ## Decision
 
@@ -20,9 +19,9 @@ Responses follow the [JSON:API specification](https://jsonapi.org/) (`resource` 
 error shapes live in `src/lib/jsonapi.ts`, with a matching client in `jsonapi-client.ts`) so both
 clients parse one consistent envelope.
 
-**All state is read and written through JSON:API route handlers under `/api`. There is no
-privileged UI backdoor** — the dashboard uses the same endpoints the agent does. The only thing
-that differs is authentication, resolved in one place by `resolveActorUserId(req)`
+**All state is read and written through JSON:API route handlers under `/api`. The UI has no
+private path of its own** — the dashboard uses the same endpoints the agent does. Only the
+authentication differs, and one function resolves it, `resolveActorUserId(req)`
 (`src/lib/agent-auth.ts`):
 
 1. If the request carries a valid Better Auth **session cookie**, it acts as that user. A valid

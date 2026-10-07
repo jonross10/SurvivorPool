@@ -32,8 +32,8 @@ The endpoint is built to be polled hard safely:
   send) so the live halftime/close logic can be checked during a real game without firing.
 
 Rejected alternatives: **GitHub Actions** scheduled workflows (free, but self-disable after 60
-days of repo inactivity — a silent-failure trap for a set-and-forget notifier); **Vercel Pro**
-($20/mo for native sub-daily crons — overkill for a hobby app).
+days of repo inactivity, which would fail silently for a notifier you set once and forget);
+**Vercel Pro** ($20/mo for native sub-daily crons — too much for a hobby app).
 
 ## Consequences
 
@@ -50,6 +50,6 @@ repo and outside Vercel*:
 - The current job lives at `https://console.cron-job.org/jobs/8566230`.
 
 **Mitigations:** the endpoint is idempotent and self-gating (safe to over-poll, safe to retry),
-and `?debug=1` gives a non-destructive way to confirm it's working. If this ever needs to be
-bulletproof or higher-volume, the equivalents are Upstash QStash (retries, generous free tier) or
-upgrading to Vercel Pro for native crons.
+and `?debug=1` gives a read-only way to confirm it's working. If this ever needs to be more
+reliable or handle higher volume, the equivalents are Upstash QStash (retries, generous free tier)
+or upgrading to Vercel Pro for native crons.

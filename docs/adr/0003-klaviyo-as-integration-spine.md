@@ -1,4 +1,4 @@
-# 0003 — Klaviyo is the messaging and integration spine
+# 0003 — Klaviyo is the messaging and integration layer
 
 **Status:** Accepted
 
@@ -6,17 +6,17 @@
 
 The app needs a conversational assistant, transactional email (passwordless sign-in links),
 push/notification delivery, and scheduled result alerts. The obvious build would be: an LLM
-integration for chat, an email provider (e.g. SES/SendGrid) for mail, a push service, and glue
-code tying them to the data model.
+integration for chat, an email provider (e.g. SES/SendGrid) for mail, a push service, and code
+connecting them to the data model.
 
-This project is also, deliberately, a showcase of what can be built *on Klaviyo* — its Customer
-Agent, Custom Objects, Flows, and events — so leaning on that platform is a goal, not just a
+This project is also, deliberately, a showcase of what you can build *on Klaviyo* — its Customer
+Agent, Custom Objects, Flows, and events — so using that platform heavily is a goal, not just a
 convenience.
 
 ## Decision
 
-Use **Klaviyo as the spine** for everything messaging-related, and mirror the app's domain state
-into Klaviyo so flows and the agent can act on it:
+Use **Klaviyo** for everything messaging-related, and mirror the app's domain state into Klaviyo
+so flows and the agent can act on it:
 
 - **Assistant:** the in-app chat is a Klaviyo **Customer Agent** conversation with a custom
   *survivor-strategy* skill. The agent's tools call back into our JSON:API routes (see
@@ -36,8 +36,8 @@ See [`../klaviyo.md`](../klaviyo.md) for the concrete wiring.
 ## Consequences
 
 **Good:**
-- No bespoke email/push/notification service to run; message content and scheduling logic live in
-  Klaviyo where they can change without a deploy.
+- No separate email, push, or notification service to run; message content and scheduling logic
+  live in Klaviyo, where they can change without a deploy.
 - The agent operates on live app state and shares the UI's capability surface, so it stays in
   sync with the product automatically.
 - Demonstrates the platform end-to-end, which is a project goal.
