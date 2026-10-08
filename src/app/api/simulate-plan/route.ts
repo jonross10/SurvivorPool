@@ -30,6 +30,10 @@ export async function POST(req: Request) {
   if (attrs.week != null && typeof attrs.team === "string" && attrs.team.trim()) {
     hypoPicks[String(attrs.week)] = attrs.team.trim();
   }
+  // Optional "replan from week N": drop the entry's locked picks for weeks >= N so the optimizer
+  // re-plans that segment fresh (the teams used there become available again), instead of treating
+  // every recorded pick as fixed. Weeks before N stay put.
+  const fromRaw = attrs.fromWeek ?? attrs.from_week;
   if (typeof entryName !== "string" || !entryName.trim()) {
     return jsonApi(errorDocument([{ status: "400", title: "Invalid request", detail: "entry is required" }]), 400);
   }
@@ -46,30 +50,34 @@ export async function POST(req: Request) {
     return jsonApi(errorDocument([{ status: "404", title: "Unknown entry", detail: `No entry named "${entryName}"` }]), 404);
   }
 
-  // Plan the whole pool (for diversification), but augment the target entry with the
-  // hypothetical picks so its projected path reflects them.
-  const entryContexts = statuses.map((s) => {
-    const base = s.picksByWeek as Record<number, string>;
-    const picksByWeek = s.entry.name === target.entry.name ? { ...base, ...hypoPicks } : base;
-    return {
-      name: s.entry.name,
-      pool: (s.entry.settings.pool as string) ?? "main",
-      safetyFloor: s.entry.settings.min_win_chance ?? 0.6,
-      picksByWeek,
-      eliminated: s.status.eliminated,
-    };
-  });
+  // Can't replan the past, so clamp the replan week to the current week.
+  const fromWeek = fromRaw != null && Number.isFinite(Number(fromRaw)) ? Math.max(Number(fromRaw), week) : null;
+  const full = target.picksByWeek as Record<number, string>;
+  const kept = fromWeek != null
+    ? Object.fromEntries(Object.entries(full).filter(([w]) => Number(w) < fromWeek))
+    : full;
+  const targetPicks = { ...kept, ...hypoPicks };
+
+  // Plan the whole pool (for diversification), but replace the target entry's picks with the
+  // kept + hypothetical set so its projected path reflects the replan.
+  const entryContexts = statuses.map((s) => ({
+    name: s.entry.name,
+    pool: (s.entry.settings.pool as string) ?? "main",
+    safetyFloor: s.entry.settings.min_win_chance ?? 0.6,
+    picksByWeek: s.entry.name === target.entry.name ? targetPicks : (s.picksByWeek as Record<number, string>),
+    eliminated: s.status.eliminated,
+  }));
 
   const rec = buildRecommendations(schedule, strengths, odds, entryContexts, new Date())
     .find((r) => r.entry === target.entry.name);
-  const mergedUsed = Object.values({ ...target.picksByWeek, ...hypoPicks });
 
   return jsonApi(
     document(
       resource("plan", target.entry.id, {
         entry: target.entry.name,
+        fromWeek,
         hypotheticalPicks: hypoPicks,
-        usedTeams: mergedUsed,
+        usedTeams: Object.values(targetPicks),
         projectedPath: rec?.projectedPath ?? [],
         currentSuggestion: rec?.pick ?? null,
       }),
