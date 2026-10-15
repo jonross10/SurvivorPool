@@ -3,17 +3,21 @@ import { getEntryStatuses } from "@/lib/entry-status";
 import { buildRecommendations } from "@/lib/recommendations";
 import { getResultsFresh } from "@/lib/sources/results";
 import { currentWeek, resolveSeason } from "@/lib/week";
-import { recordPick } from "@/lib/db/picks-repo";
+import { recordPick, removePick } from "@/lib/db/picks-repo";
 import { resolveActorUserId } from "@/lib/agent-auth";
 import { syncOwnerInBackground } from "@/lib/klaviyo-objects";
 import { resource, document, errorDocument, jsonApi, unauthorized } from "@/lib/jsonapi";
 import type { Matchup, TeamStrength, MoneylineGame } from "@/lib/types";
 
 /**
- * Lock in an entry's entire remaining projected path in ONE call. Computes the optimized path
- * once (so every week is consistent — no drift from re-planning after each individual pick) and
- * records a pick for each not-yet-locked week. Weeks already picked are left untouched. This is
- * what lets the assistant honor "submit all my future picks from the plan".
+ * Lock in an entry's remaining projected path in ONE call. Computes the optimized path once (so
+ * every week is consistent — no drift from re-planning after each pick) and records a pick for
+ * each not-yet-locked week.
+ *
+ * Without `fromWeek`: fills only the empty future weeks ("submit all my future picks from the
+ * plan"). With `fromWeek`: APPLIES a replan — first clears the entry's picks for weeks >= N
+ * (freeing those teams), then rebuilds and commits the path from N on. This is what lets the
+ * assistant honor "do the whole replan" when every future week is already reserved.
  */
 export async function POST(req: Request) {
   const userId = await resolveActorUserId(req);
@@ -31,14 +35,32 @@ export async function POST(req: Request) {
   const odds = (await getCache<MoneylineGame[]>("odds"))?.payload ?? [];
   const week = currentWeek(schedule, new Date());
   const results = await getResultsFresh(week, resolveSeason());
-  const statuses = await getEntryStatuses(results, userId);
+  let statuses = await getEntryStatuses(results, userId);
 
-  const target = statuses.find((s) => s.entry.name.toLowerCase() === entryName.toLowerCase());
+  let target = statuses.find((s) => s.entry.name.toLowerCase() === entryName.toLowerCase());
   if (!target) {
     return jsonApi(errorDocument([{ status: "404", title: "Unknown entry", detail: `No entry named "${entryName}"` }]), 404);
   }
   if (target.status.eliminated) {
     return jsonApi(errorDocument([{ status: "409", title: "Entry eliminated", detail: `${target.entry.name} is eliminated and can't make picks.` }]), 409);
+  }
+
+  // Replan: clear this entry's picks from `fromWeek` on (can't touch the past), so those weeks and
+  // teams are free to re-optimize, then re-read state so the rebuilt path reflects the clearing.
+  const fromRaw = attrs.fromWeek ?? attrs.from_week;
+  const fromWeek = fromRaw != null && Number.isFinite(Number(fromRaw)) ? Math.max(Number(fromRaw), week) : null;
+  const cleared: { week: number; team: string }[] = [];
+  if (fromWeek != null) {
+    for (const [wStr, team] of Object.entries(target.picksByWeek)) {
+      if (Number(wStr) >= fromWeek) {
+        await removePick(target.entry.id, Number(wStr));
+        cleared.push({ week: Number(wStr), team: team as string });
+      }
+    }
+    if (cleared.length > 0) {
+      statuses = await getEntryStatuses(results, userId);
+      target = statuses.find((s) => s.entry.name.toLowerCase() === entryName.toLowerCase())!;
+    }
   }
 
   const entryContexts = statuses.map((s) => ({
@@ -67,11 +89,11 @@ export async function POST(req: Request) {
       skipped.push({ week: p.week, team: p.team, reason: e instanceof Error ? e.message : "conflict" });
     }
   }
-  if (submitted.length > 0) syncOwnerInBackground(userId);
+  if (submitted.length > 0 || cleared.length > 0) syncOwnerInBackground(userId);
 
   return jsonApi(
     document(
-      resource("plan-submit", target.entry.id, { entry: target.entry.name, submitted, skipped }),
+      resource("plan-submit", target.entry.id, { entry: target.entry.name, fromWeek, cleared, submitted, skipped }),
       { week, count: submitted.length },
     ),
   );

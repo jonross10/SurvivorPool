@@ -233,6 +233,18 @@ async function main() {
       { name: "fromWeek", type: "number", required: true, description: "Week to replan from (inclusive)", source: "dynamic" },
     ],
   }));
+  const applyReplan = await post("/agent-tools", tool(secretId, {
+    name: "apply_replan",
+    description: "APPLY a replan: clear the entry's picks from <fromWeek> on and COMMIT the rebuilt optimal path, replacing any future reservations. Use when the user confirms they want to actually change a locked future segment (not just preview it). This is also how you change a single locked week to a team that's reserved later — make_pick alone 409s on the duplicate. Confirm first; it rewrites locked future picks.",
+    method: "POST",
+    url: `${APP}/api/picks/bulk`,
+    body: { data: { attributes: { entry: "{{entry}}", fromWeek: "{{fromWeek}}" } } },
+    maxRetries: 0,
+    variables: [
+      { name: "entry", type: "string", required: true, description: "Entry name", source: "dynamic" },
+      { name: "fromWeek", type: "number", required: true, description: "Week to replan + commit from (inclusive)", source: "dynamic" },
+    ],
+  }));
 
   const getInjuries = await post("/agent-tools", tool(secretId, {
     name: "get_injuries",
@@ -265,7 +277,7 @@ async function main() {
   const toolIds = [
     getEntries.id, getMatchups.id, makePick.id,
     createEntryTool.id, updateEntryTool.id, deleteEntryTool.id,
-    getWeekOptions.id, planWhatif.id, submitPlan.id, getInjuries.id, replanFrom.id,
+    getWeekOptions.id, planWhatif.id, submitPlan.id, getInjuries.id, replanFrom.id, applyReplan.id,
   ].filter(Boolean).map((id) => ({ type: "agent-tool", id }));
   await post("/agent-skills", {
     type: "agent-skill",
@@ -290,10 +302,13 @@ async function main() {
         "to add context to picks; NEVER say you lack an injury feed.\n" +
         "- plan_whatif(entry, week, team): simulate the rebuilt projectedPath if the entry used <team> in <week> " +
         "(without locking) — use for 'if I use DAL in Week 5, what does the rest of the season look like?'.\n" +
-        "- replan_from(entry, week): re-optimize the entry's plan from <week> onward, FREEING its locked picks from " +
-        "that week on so the rest of the season is planned fresh. Use when a future segment is already locked and the " +
-        "user wants real alternatives — e.g. 'replan Test from Week 5'. (plan_whatif keeps later locked picks fixed; " +
-        "replan_from reopens them.)\n" +
+        "- replan_from(entry, week): PREVIEW a re-optimized plan from <week> onward, FREEING the entry's locked picks " +
+        "from that week on (read-only). Use when a future segment is already locked and the user wants to see real " +
+        "alternatives — e.g. 'replan Test from Week 5'. (plan_whatif keeps later locked picks fixed; replan_from " +
+        "reopens them.)\n" +
+        "- apply_replan(entry, week): COMMIT a replan — clears the entry's picks from <week> on and writes the rebuilt " +
+        "path. Use when the user confirms they want to actually change a locked future segment. IMPORTANT: to change a " +
+        "single locked week to a team reserved in a later week, use this (make_pick alone 409s on the duplicate team).\n" +
         "- make_pick(entry, week, team): record ONE week's pick (works for any week, past or future).\n" +
         "- submit_plan(entry): lock in the entry's ENTIRE remaining plan at once — use when the user wants to " +
         "submit all their future picks / 'use the whole plan'. It records every not-yet-locked future week from a " +
