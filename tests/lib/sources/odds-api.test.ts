@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseOdds } from "@/lib/sources/odds-api";
+import { isValidAmericanOdds } from "@/lib/odds";
 import type { Matchup } from "@/lib/types";
 
 const fixture = JSON.parse(
@@ -35,5 +36,20 @@ describe("parseOdds", () => {
   it("skips games not found in the schedule week lookup", () => {
     const games = parseOdds(fixture, new Map());
     expect(games.length).toBe(0);
+  });
+
+  it("averages mixed-sign (near-pick'em) prices in probability space, so the line stays valid", () => {
+    const schedule: Matchup[] = [{ week: 6, home: "GB", away: "DAL", kickoff: "2026-10-18T00:20:00Z" }];
+    const game = {
+      home_team: "Green Bay Packers", away_team: "Dallas Cowboys", commence_time: "2026-10-18T00:20:00Z",
+      bookmakers: [
+        { markets: [{ key: "h2h", outcomes: [{ name: "Green Bay Packers", price: -120 }, { name: "Dallas Cowboys", price: 100 }] }] },
+        { markets: [{ key: "h2h", outcomes: [{ name: "Green Bay Packers", price: 105 }, { name: "Dallas Cowboys", price: -125 }] }] },
+      ],
+    };
+    const [g] = parseOdds([game], scheduleWeekLookup(schedule));
+    // Numeric averaging would give GB (-120+105)/2 = -7.5, an impossible line. Prob-space stays valid.
+    expect(isValidAmericanOdds(g.homeOdds)).toBe(true);
+    expect(isValidAmericanOdds(g.awayOdds)).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import type { MoneylineGame } from "../types";
 import { normalizeTeam } from "../teams";
-import { isValidAmericanOdds } from "../odds";
+import { isValidAmericanOdds, americanToImplied, impliedToAmerican } from "../odds";
 
 interface OddsOutcome { name: string; price: number; point?: number }
 interface OddsMarket { key: string; outcomes: OddsOutcome[] }
@@ -13,15 +13,18 @@ interface OddsGame {
 }
 
 function avgPrice(game: OddsGame, teamName: string): number | null {
-  const prices: number[] = [];
+  // Average in implied-probability space, then convert back. Averaging the American numbers
+  // directly corrupts near-pick'em games (mixing -110 and +100 lands at an impossible line like
+  // +35, which downstream rejects — and the game falls back to FPI).
+  const probs: number[] = [];
   for (const book of game.bookmakers ?? []) {
     const h2h = book.markets.find((m) => m.key === "h2h");
     const outcome = h2h?.outcomes.find((o) => o.name === teamName);
     // Skip corrupt prices so one bad book can't drag the average to a nonsense value.
-    if (outcome && isValidAmericanOdds(outcome.price)) prices.push(outcome.price);
+    if (outcome && isValidAmericanOdds(outcome.price)) probs.push(americanToImplied(outcome.price));
   }
-  if (prices.length === 0) return null;
-  return prices.reduce((a, b) => a + b, 0) / prices.length;
+  if (probs.length === 0) return null;
+  return impliedToAmerican(probs.reduce((a, b) => a + b, 0) / probs.length);
 }
 
 /** Average the spread `point` for a team across books, rounded to the nearest 0.5. */

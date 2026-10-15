@@ -12,6 +12,17 @@ export function americanToImplied(odds: number): number {
 }
 
 /**
+ * Raw implied probability → American odds (favorite negative, underdog positive). Inverse of
+ * americanToImplied. Use this to average moneylines across books: average the *probabilities*,
+ * then convert back. Averaging American odds numerically is wrong across the ±100 boundary — for
+ * a near-pick'em, mixing -110 and +100 lands between -100 and +100, an impossible line.
+ */
+export function impliedToAmerican(prob: number): number {
+  if (prob >= 0.5) return -Math.round((100 * prob) / (1 - prob));
+  return Math.round((100 * (1 - prob)) / prob);
+}
+
+/**
  * Remove the bookmaker overround from a two-way market by normalizing the two
  * raw implied probabilities so they sum to 1.
  */
