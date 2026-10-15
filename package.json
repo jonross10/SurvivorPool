@@ -12,7 +12,8 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "migrate": "tsx src/lib/db/migrate.ts"
+    "migrate": "tsx src/lib/db/migrate.ts",
+    "notify-deploy": "tsx scripts/notify-deploy.ts"
   },
   "keywords": [],
   "author": "",
